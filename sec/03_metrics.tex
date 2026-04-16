@@ -1,0 +1,38 @@
+\section{Evaluation metrics}
+
+Table~\ref{tab:metrics} defines the exact reporting metrics used in this study.
+
+\begin{table*}[t]
+\centering
+\caption{Exact metric definitions for reporting.}
+\label{tab:metrics}
+\small
+\begin{tabular}{llllll}
+\hline
+\textbf{Metric} & \textbf{Symbol} & \textbf{Computation} & \textbf{Unit} & \textbf{Direction} \\
+\hline
+End-to-end latency & $T$ & completion\_time $-$ request\_start & s & Lower \\
+Throughput & $R_{\text{tok}}$ & output\_tokens $/$ $T$ & tokens/s & Higher \\
+Time-to-first-token & TTFT & first\_token\_time $-$ request\_start & ms & Lower \\
+Time-per-output-token & TPOT & (completion\_time $-$ first\_token\_time) $/$ output\_tokens & ms/token & Lower \\
+Acceptance rate & $\alpha$ & accepted\_draft\_tokens $/$ proposed\_draft\_tokens & ratio & Higher \\
+Effective block size & $B_{\text{eff}}$ & accepted\_draft\_tokens $/$ verify\_steps & tokens/step & Higher \\
+Relative speedup & $S$ & baseline\_latency $/$ speculative\_latency & $\times$ & Higher \\
+GSM8K quality & $Q_{\text{gsm}}$ & correct $/$ total & \% & Higher \\
+MMLU quality & $Q_{\text{mmlu}}$ & correct $/$ total & \% & Higher \\
+CNN/DailyMail quality & $Q_{\text{sum}}$ & standard ROUGE-L F1 & score & Higher \\
+Quality delta & $\Delta Q$ & $Q_{\text{spec}} - Q_{\text{base}}$ & points & $\approx 0$ or $+$ \\
+Speedup stability & $\sigma_S$ & std($S$ over seeds) & $\times$ & Lower \\
+\hline
+\end{tabular}
+\end{table*}
+
+\subsection{Success criteria}
+
+\noindent\textbf{Primary:}
+\begin{enumerate}
+    \item $S \geq 1.3\times$.
+    \item Absolute quality drop $\leq 1.0$ point on GSM8K and MMLU in deterministic regime.
+\end{enumerate}
+
+\noindent\textbf{Secondary:} Identify best (draft size, $k$) maximizing $S$ while satisfying the quality constraint.

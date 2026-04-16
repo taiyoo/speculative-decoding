@@ -1,0 +1,16 @@
+\section{Introduction}
+
+Autoregressive decoding in large language models (LLMs) is often computationally expensive, especially for long outputs and latency-sensitive use cases. Speculative decoding~\cite{Leviathan2023} is a practical acceleration strategy in which a lightweight draft model proposes candidate token blocks, and a stronger target model verifies and accepts or rejects these proposals. Despite its promise, outcomes vary with model pairing, draft length, and sampling regime. This study defines an experimental protocol to measure these factors and identify operating points that maximize speed while maintaining output quality.
+
+\subsection{Research questions}
+
+We address the following research questions:
+\begin{enumerate}
+    \item How much end-to-end speedup can speculative decoding deliver versus standard autoregressive decoding under fixed hardware and prompts?
+    \item How do draft model size and draft length affect token acceptance rate and net latency gains?
+    \item How sensitive is the speed--quality trade-off to deterministic versus stochastic decoding settings?
+\end{enumerate}
+
+\subsection{Hypothesis}
+
+Speculative decoding provides a consistent speed--quality trade-off, and acceptance rate is the dominant mediator of net speedup. Draft model size and draft length jointly determine this acceptance behavior, with deterministic decoding yielding the most stable gains.

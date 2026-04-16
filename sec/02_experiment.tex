@@ -1,0 +1,67 @@
+\section{Experimental protocol}
+
+\subsection{Datasets and sample sizes}
+
+We evaluate on three benchmarks spanning reasoning, knowledge, and summarization:
+\begin{enumerate}
+    \item \textbf{GSM8K}~\cite{Cobbe2021} test subset: 300 samples.
+    \item \textbf{MMLU}~\cite{Hendrycks2020} subset: 500 samples (5 subjects $\times$ 100 each).
+    \item \textbf{CNN/DailyMail}~\cite{Narayan2018} subset: 200 samples.
+\end{enumerate}
+
+\noindent\textbf{Sampling policy:} Fixed random seed $= 42$, stratified sampling where applicable, and a frozen sample-ID manifest generated before experimentation.
+
+\subsection{Prompt set}
+
+We use the following fixed prompt templates for each task:
+
+\smallskip\noindent\textbf{GSM8K:}
+\begin{quote}\small\ttfamily
+You are a careful math assistant. Solve the problem step by step and end with Final Answer: <number>.\\
+Question: \{question\}
+\end{quote}
+
+\noindent\textbf{MMLU:}
+\begin{quote}\small\ttfamily
+You are a knowledgeable assistant. Choose exactly one option.\\
+Question: \{question\}\\
+Options: A.~\{A\} B.~\{B\} C.~\{C\} D.~\{D\}\\
+Answer:
+\end{quote}
+
+\noindent\textbf{CNN/DailyMail:}
+\begin{quote}\small\ttfamily
+Summarize the following article in 3--4 sentences, preserving key facts and entities.\\
+Article: \{article\}\\
+Summary:
+\end{quote}
+
+\subsection{Model setup}
+
+\begin{itemize}
+    \item \textbf{Target model:} Qwen/Qwen2.5-7B-Instruct (7B).
+    \item \textbf{AR draft models} (same family as target):
+    \begin{enumerate}
+        \item[(a)] Qwen/Qwen2.5-0.5B-Instruct (0.5B; fast draft; lower expected acceptance).
+        \item[(b)] Qwen/Qwen2.5-1.5B-Instruct (1.5B; balanced draft; expected best trade-off).
+    \end{enumerate}
+    \item \textbf{Tokenizer rule:} Target and draft must use the same tokenizer family.
+    \item \textbf{Baseline:} Target-only autoregressive decoding.
+\end{itemize}
+
+\subsection{Decoding regimes}
+
+\begin{itemize}
+    \item \textbf{Deterministic regime:} temperature $= 0.0$, top\_p $= 1.0$.
+    \item \textbf{Stochastic regime:} temperature $= 0.7$, top\_p $= 0.9$.
+    \item \textbf{Draft lengths:} $k \in \{4, 8, 16\}$.
+    \item \textbf{Max new tokens:} GSM8K: 256; MMLU: 32; CNN/DailyMail: 160.
+\end{itemize}
+
+\subsection{Controlled variables}
+
+\begin{enumerate}
+    \item Identical prompts and sample order across all runs.
+    \item Identical hardware and software environment.
+    \item Fixed seeds for determinism and robustness checks.
+\end{enumerate}

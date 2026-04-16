@@ -1,0 +1,22 @@
+\section{Threats to validity}
+
+\begin{enumerate}
+    \item \textbf{Model-family dependence:} Gains may vary across target--draft families.
+    \item \textbf{Hardware dependence:} Absolute latency may shift across GPU classes.
+    \item \textbf{Prompt sensitivity:} Some tasks may be sensitive to instruction phrasing.
+    \item \textbf{Metric limits:} ROUGE-L may not fully capture summary factuality.
+\end{enumerate}
+
+\section{Reproducibility checklist}
+
+\begin{enumerate}
+    \item Frozen sample-ID manifests for all datasets.
+    \item Published prompt templates and decoding parameters.
+    \item Full environment specification (GPU, CUDA, driver, framework versions).
+    \item Logged seeds and run identifiers.
+    \item Raw outputs and metric scripts archived with checksums.
+\end{enumerate}
+
+\section{Conclusion}
+
+This protocol operationalizes a high-rigor study of speculative decoding. It is designed to isolate the core mechanisms behind acceleration, quantify speed--quality trade-offs, and deliver practical guidance for selecting draft model size and draft length under explicit quality constraints.

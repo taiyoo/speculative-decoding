@@ -1,0 +1,4 @@
+python: 3.14.2 (main, Dec  5 2025, 16:49:16) [Clang 16.0.0 (clang-1600.0.26.6)]
+torch: 2.11.0
+cuda_available: False
+device: Apple MPS
