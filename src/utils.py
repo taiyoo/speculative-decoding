@@ -23,6 +23,9 @@ def set_seed(seed: int) -> None:
             torch.cuda.manual_seed_all(seed)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            # No additional deterministic backend flags are currently exposed for MPS.
+            pass
     except ImportError:
         pass
 
@@ -47,6 +50,8 @@ class GPUTimer:
             import torch
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
+            elif hasattr(torch, "mps") and torch.backends.mps.is_available():
+                torch.mps.synchronize()
         except ImportError:
             pass
         self._start = time.perf_counter()
@@ -57,6 +62,8 @@ class GPUTimer:
             import torch
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
+            elif hasattr(torch, "mps") and torch.backends.mps.is_available():
+                torch.mps.synchronize()
         except ImportError:
             pass
         self.elapsed_s = time.perf_counter() - self._start
@@ -103,6 +110,12 @@ def get_env_info() -> dict:
         if torch.cuda.is_available():
             info["cuda_version"] = torch.version.cuda
             info["gpu_name"] = torch.cuda.get_device_name(0)
+            info["device"] = "cuda"
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            info["device"] = "mps"
+            info["mps_available"] = True
+        else:
+            info["device"] = "cpu"
     except ImportError:
         info["torch"] = "not installed"
     try:

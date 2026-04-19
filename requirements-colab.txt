@@ -1,0 +1,13 @@
+# Colab-friendly runtime dependencies for this experiment.
+# Use this file in Colab/GPU environments instead of the fully pinned requirements.txt.
+
+accelerate>=0.29.0
+datasets>=2.18.0
+matplotlib>=3.7.0
+numpy>=1.26.0
+pandas>=2.0.0
+rouge-score>=0.1.2
+seaborn>=0.13.0
+sentencepiece>=0.1.99
+tokenizers>=0.15.0
+transformers>=4.39.0
