@@ -12,21 +12,38 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from config import (
-    TARGET_MODEL_ID, DATASETS, REGIMES, RESULTS_DIR, SEED,
+    TARGET_MODEL_ID, DATASETS, REGIMES, RESULTS_DIR, SEED, QUANT_MODE,
 )
 from utils import set_seed, GPUTimer, write_csv
 
 
+def _get_quant_kwargs():
+    """Return model loading kwargs based on QUANT_MODE config."""
+    if QUANT_MODE == "int8":
+        from transformers import BitsAndBytesConfig
+        return {
+            "quantization_config": BitsAndBytesConfig(load_in_8bit=True),
+            "device_map": "auto",
+        }
+    if QUANT_MODE == "fp8":
+        from transformers import QuantoConfig
+        return {
+            "quantization_config": QuantoConfig(weights="float8"),
+            "device_map": "auto",
+        }
+    # Default: fp16
+    return {"torch_dtype": torch.float16, "device_map": "auto"}
+
+
 def load_target_model():
     """Load the target model and tokenizer once."""
-    print(f"Loading target model: {TARGET_MODEL_ID}")
+    print(f"Loading target model: {TARGET_MODEL_ID} (quant={QUANT_MODE})")
     tokenizer = AutoTokenizer.from_pretrained(
         TARGET_MODEL_ID, trust_remote_code=True
     )
     model = AutoModelForCausalLM.from_pretrained(
         TARGET_MODEL_ID,
-        torch_dtype=torch.float16,
-        device_map="auto",
+        **_get_quant_kwargs(),
         trust_remote_code=True,
     )
     model.eval()

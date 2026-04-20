@@ -11,3 +11,7 @@ seaborn>=0.13.0
 sentencepiece>=0.1.99
 tokenizers>=0.15.0
 transformers>=4.39.0
+
+# Quantization backends (install the one matching QUANT_MODE in src/config.py)
+bitsandbytes>=0.44.0       # for QUANT_MODE="int8"
+optimum-quanto>=0.2.0      # for QUANT_MODE="fp8"

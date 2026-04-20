@@ -97,6 +97,10 @@ DRAFT_LENGTHS = [4, 8, 16]
 # ── Stability Seeds ───────────────────────────────────────────────────────────
 STABILITY_SEEDS = [42, 123, 999]
 
+# ── Quantization ──────────────────────────────────────────────────────────────
+# Options: "fp16", "int8" (bitsandbytes), "fp8" (quanto float8_e4m3)
+QUANT_MODE = "fp8"
+
 # ── Success Criteria ──────────────────────────────────────────────────────────
 MIN_SPEEDUP = 1.3          # S >= 1.3x
 MAX_QUALITY_DROP = 1.0     # |ΔQ| <= 1.0 point
