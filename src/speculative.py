@@ -17,35 +17,28 @@ from config import (
     DRAFT_LENGTHS, RESULTS_DIR, STABILITY_DIR, SEED, STABILITY_SEEDS,
     QUANT_MODE,
 )
+from quantization import get_quant_kwargs
 from utils import set_seed, GPUTimer, write_csv
 
 
 def _get_quant_kwargs():
     """Return model loading kwargs based on QUANT_MODE config."""
-    if QUANT_MODE == "int8":
-        from transformers import BitsAndBytesConfig
-        return {
-            "quantization_config": BitsAndBytesConfig(load_in_8bit=True),
-            "device_map": "auto",
-        }
-    if QUANT_MODE == "fp8":
-        from transformers import QuantoConfig
-        return {
-            "quantization_config": QuantoConfig(weights="float8"),
-            "device_map": "auto",
-        }
-    # Default: fp16
-    return {"torch_dtype": torch.float16, "device_map": "auto"}
+    kwargs, _ = get_quant_kwargs()
+    return kwargs
 
 
 def load_draft_model(draft_label: str):
     """Load a draft model and tokenizer."""
     model_id = DRAFT_MODELS[draft_label]
-    print(f"Loading draft model: {model_id} (quant={QUANT_MODE})")
+    quant_kwargs, resolved_quant_mode = get_quant_kwargs()
+    print(
+        f"Loading draft model: {model_id} "
+        f"(quant={QUANT_MODE} -> {resolved_quant_mode})"
+    )
     tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
-        **_get_quant_kwargs(),
+        **quant_kwargs,
         trust_remote_code=True,
     )
     model.eval()

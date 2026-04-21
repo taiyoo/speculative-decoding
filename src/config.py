@@ -93,6 +93,7 @@ REGIMES = {
 
 # ── Speculative Decoding ──────────────────────────────────────────────────────
 DRAFT_LENGTHS = [4, 8, 16]
+# DRAFT_LENGTHS = [8, 16]
 
 # ── Stability Seeds ───────────────────────────────────────────────────────────
 STABILITY_SEEDS = [42, 123, 999]

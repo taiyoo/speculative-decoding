@@ -125,8 +125,8 @@ def freeze_manifests(data: dict[str, list[dict]]) -> None:
     for task_name, rows in data.items():
         manifest = [r["sample_id"] for r in rows]
         path = MANIFESTS_DIR / f"{task_name}.json"
-        with open(path, "w") as f:
-            json.dump(manifest, f, indent=2)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2, ensure_ascii=False)
         print(f"  [{task_name}] manifest frozen → {path}  ({len(manifest)} ids)")
 
 
@@ -138,7 +138,7 @@ def save_full_data(data: dict[str, list[dict]]) -> None:
     MANIFESTS_DIR.mkdir(parents=True, exist_ok=True)
     for task_name, rows in data.items():
         path = MANIFESTS_DIR / f"{task_name}_data.json"
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(rows, f, indent=2, ensure_ascii=False)
         print(f"  [{task_name}] full data saved → {path}")
 
@@ -155,7 +155,7 @@ def load_from_manifests() -> dict[str, list[dict]]:
             raise FileNotFoundError(
                 f"Manifest data not found: {path}. Run Phase 1 first."
             )
-        with open(path) as f:
+        with open(path, "r", encoding="utf-8") as f:
             data[task_name] = json.load(f)
         print(f"  [{task_name}] loaded {len(data[task_name])} samples from manifest")
     return data
