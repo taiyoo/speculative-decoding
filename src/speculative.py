@@ -18,6 +18,7 @@ from config import (
     QUANT_MODE,
 )
 from quantization import get_quant_kwargs
+from sampling import probs_from_logits, sample_next_token
 from utils import set_seed, GPUTimer, write_csv
 
 
@@ -47,31 +48,50 @@ def load_draft_model(draft_label: str):
     return model, tokenizer
 
 
-def _draft_generate(model, input_ids: torch.Tensor, k: int, gen_kwargs: dict) -> torch.Tensor:
-    """Generate k tokens from the draft model autoregressively."""
-    draft_ids = input_ids.clone()
-    for _ in range(k):
-        with torch.no_grad():
-            outputs = model(draft_ids)
-            logits = outputs.logits[:, -1, :]
+def _draft_generate(
+    model,
+    input_ids: torch.Tensor,
+    k: int,
+    gen_kwargs: dict,
+) -> tuple[torch.Tensor, list[float], torch.Tensor]:
+    """
+    Generate k draft tokens with KV-cache decoding.
 
-            if gen_kwargs.get("do_sample", False):
-                temp = gen_kwargs.get("temperature", 1.0)
-                top_p = gen_kwargs.get("top_p", 1.0)
-                logits = logits / temp
-                # Top-p (nucleus) filtering
-                sorted_logits, sorted_indices = torch.sort(logits, descending=True)
-                cum_probs = torch.cumsum(torch.softmax(sorted_logits, dim=-1), dim=-1)
-                mask = cum_probs - torch.softmax(sorted_logits, dim=-1) >= top_p
-                sorted_logits[mask] = float("-inf")
-                probs = torch.softmax(sorted_logits, dim=-1)
-                sampled_idx = torch.multinomial(probs, 1)
-                next_token = sorted_indices.gather(1, sampled_idx)
-            else:
-                next_token = logits.argmax(dim=-1, keepdim=True)
+    Returns:
+        draft_ids: full sequence (prefix + proposed draft tokens)
+        q_token_probs: q(y_i) for each proposed token under draft policy
+        q_step_logits: draft logits used at each speculative step (k, vocab)
+    """
+    q_token_probs: list[float] = []
+    q_step_logits: list[torch.Tensor] = []
+    proposed_tokens: list[torch.Tensor] = []
 
-            draft_ids = torch.cat([draft_ids, next_token], dim=-1)
-    return draft_ids
+    with torch.inference_mode():
+        outputs = model(input_ids, use_cache=True)
+        logits = outputs.logits[:, -1, :]
+        past_key_values = outputs.past_key_values
+
+        for step in range(k):
+            q_step_logits.append(logits.squeeze(0).detach())
+
+            next_token, probs = sample_next_token(logits, gen_kwargs)
+            q_prob = probs.gather(1, next_token).squeeze(1)
+            q_token_probs.append(float(q_prob.item()))
+
+            proposed_tokens.append(next_token)
+
+            if step < k - 1:
+                outputs = model(
+                    next_token,
+                    use_cache=True,
+                    past_key_values=past_key_values,
+                )
+                logits = outputs.logits[:, -1, :]
+                past_key_values = outputs.past_key_values
+
+    proposed = torch.cat(proposed_tokens, dim=-1)
+    draft_ids = torch.cat([input_ids, proposed], dim=-1)
+    return draft_ids, q_token_probs, torch.stack(q_step_logits, dim=0)
 
 
 def _verify_and_accept(
@@ -80,6 +100,8 @@ def _verify_and_accept(
     draft_ids: torch.Tensor,
     n_input: int,
     gen_kwargs: dict,
+    q_token_probs: list[float],
+    q_step_logits: torch.Tensor,
 ) -> tuple[torch.Tensor, int, int]:
     """
     Verify draft tokens with target model.
@@ -92,62 +114,64 @@ def _verify_and_accept(
     draft_tokens = draft_ids[0, n_input:]
     k = len(draft_tokens)
 
-    with torch.no_grad():
+    n_accepted = 0
+    with torch.inference_mode():
+        # Block verification: one target forward over prefix+draft block.
         outputs = target_model(draft_ids)
-        # logits shape: (1, seq_len, vocab)
-        # We need logits at positions [n_input-1 .. n_input+k-1] to verify tokens at [n_input .. n_input+k]
+        # logits indices [n_input - 1 .. n_input + k - 1] correspond to
+        # distributions for draft tokens [0..k-1] and the bonus token at index k.
         verify_logits = outputs.logits[0, n_input - 1: n_input + k, :]
 
-    n_accepted = 0
-    for i in range(k):
-        logits_i = verify_logits[i].unsqueeze(0)
-
-        if gen_kwargs.get("do_sample", False):
-            temp = gen_kwargs.get("temperature", 1.0)
-            logits_i = logits_i / temp
-            # For stochastic: accept probabilistically
+        for i in range(k):
+            logits_i = verify_logits[i].unsqueeze(0)
             draft_token = draft_tokens[i].item()
-            target_probs = torch.softmax(logits_i, dim=-1)
-            draft_prob = target_probs[0, draft_token].item()
 
-            # Also get draft model probability (approximated: we accept if
-            # target prob >= threshold; simplified acceptance for experiment)
-            # Standard speculative: accept with prob min(1, p_target/p_draft)
-            # Since we don't have draft probs cached, use greedy-match fallback
-            target_token = logits_i.argmax(dim=-1).item()
+            if gen_kwargs.get("do_sample", False):
+                # Paper-faithful stochastic acceptance:
+                # accept with probability min(1, p_i(y_i) / q_i(y_i)).
+                p_probs = probs_from_logits(logits_i, gen_kwargs)
+                p_token = float(p_probs[0, draft_token].item())
+                q_token = max(float(q_token_probs[i]), 1e-12)
+                accept_prob = min(1.0, p_token / q_token)
 
-            # Simplified: if top-1 from target matches draft, accept
-            # This is conservative but ensures output quality
-            if target_token == draft_token:
-                n_accepted += 1
+                if float(torch.rand(1).item()) < accept_prob:
+                    n_accepted += 1
+                else:
+                    # Rejection correction: sample from residual max(p - q, 0).
+                    q_logits_i = q_step_logits[i].unsqueeze(0).to(p_probs.device)
+                    q_probs = probs_from_logits(q_logits_i, gen_kwargs)
+                    residual = torch.clamp(p_probs - q_probs, min=0.0)
+                    residual_mass = float(residual.sum().item())
+                    if residual_mass <= 1e-12:
+                        corrected = p_probs
+                    else:
+                        corrected = residual / residual.sum(dim=-1, keepdim=True)
+
+                    corrected_token = torch.multinomial(corrected, 1)
+                    accepted_seq = draft_ids[:, : n_input + n_accepted]
+                    final_ids = torch.cat(
+                        [accepted_seq, corrected_token.to(accepted_seq.device)],
+                        dim=-1,
+                    )
+                    return final_ids, k, n_accepted
             else:
-                # Reject: sample from target distribution at this position
-                break
+                # Deterministic: accept if argmax matches; on mismatch emit target token.
+                target_token = logits_i.argmax(dim=-1, keepdim=True)
+                if int(target_token.item()) == draft_token:
+                    n_accepted += 1
+                else:
+                    accepted_seq = draft_ids[:, : n_input + n_accepted]
+                    final_ids = torch.cat([accepted_seq, target_token.to(accepted_seq.device)], dim=-1)
+                    return final_ids, k, n_accepted
+
+        # All proposed tokens accepted; sample one bonus token from target.
+        accepted_seq = draft_ids[:, : n_input + n_accepted]
+        bonus_logits = verify_logits[k].unsqueeze(0)
+        if gen_kwargs.get("do_sample", False):
+            bonus_probs = probs_from_logits(bonus_logits, gen_kwargs)
+            bonus_token = torch.multinomial(bonus_probs, 1)
         else:
-            # Deterministic: accept if argmax matches
-            target_token = logits_i.argmax(dim=-1).item()
-            if target_token == draft_tokens[i].item():
-                n_accepted += 1
-            else:
-                break
-
-    # Build final sequence: input + accepted draft tokens + 1 bonus from target
-    accepted_seq = draft_ids[:, : n_input + n_accepted]
-
-    # Generate one bonus token from target at the divergence/acceptance point
-    bonus_logits = verify_logits[n_accepted].unsqueeze(0)
-    if gen_kwargs.get("do_sample", False):
-        temp = gen_kwargs.get("temperature", 1.0)
-        top_p = gen_kwargs.get("top_p", 1.0)
-        bonus_logits = bonus_logits / temp
-        sorted_logits, sorted_indices = torch.sort(bonus_logits, descending=True)
-        cum_probs = torch.cumsum(torch.softmax(sorted_logits, dim=-1), dim=-1)
-        mask = cum_probs - torch.softmax(sorted_logits, dim=-1) >= top_p
-        sorted_logits[mask] = float("-inf")
-        probs = torch.softmax(sorted_logits, dim=-1)
-        bonus_token = sorted_indices.gather(1, torch.multinomial(probs, 1))
-    else:
-        bonus_token = bonus_logits.argmax(dim=-1, keepdim=True)
+            bonus_token = bonus_logits.argmax(dim=-1, keepdim=True)
 
     final_ids = torch.cat([accepted_seq, bonus_token], dim=-1)
     return final_ids, k, n_accepted
@@ -179,6 +203,8 @@ def speculative_decode_sample(
         gen_kwargs["top_p"] = top_p
 
     current_ids = input_ids.clone()
+    target_device = input_ids.device
+    draft_device = next(draft_model.parameters()).device
     total_proposed = 0
     total_accepted = 0
     n_verify_steps = 0
@@ -195,21 +221,36 @@ def speculative_decode_sample(
             if effective_k <= 0:
                 break
 
-            # Move draft input to draft model device
-            draft_input = current_ids.to(draft_model.device)
+            # Move to draft device only when needed.
+            if draft_device == target_device:
+                draft_input = current_ids
+            else:
+                draft_input = current_ids.to(draft_device, non_blocking=True)
 
             # Draft phase
-            draft_ids = _draft_generate(draft_model, draft_input, effective_k, gen_kwargs)
+            draft_ids, q_token_probs, q_step_logits = _draft_generate(
+                draft_model,
+                draft_input,
+                effective_k,
+                gen_kwargs,
+            )
 
             # Move back to target device for verification
-            draft_ids = draft_ids.to(target_model.device)
+            if draft_device != target_device:
+                draft_ids = draft_ids.to(target_device, non_blocking=True)
 
             # Verify phase
             if n_verify_steps == 0:
                 ttft_timer.__enter__()
 
             new_ids, n_proposed, n_accepted = _verify_and_accept(
-                target_model, current_ids, draft_ids, current_ids.shape[1], gen_kwargs,
+                target_model,
+                current_ids,
+                draft_ids,
+                current_ids.shape[1],
+                gen_kwargs,
+                q_token_probs,
+                q_step_logits,
             )
 
             if n_verify_steps == 0:

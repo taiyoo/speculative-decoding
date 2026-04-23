@@ -5,9 +5,6 @@ Loads Qwen2.5-7B-Instruct, runs all 1,000 samples in both decoding regimes,
 records per-sample latency/throughput/output.
 """
 
-import time
-from pathlib import Path
-
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -15,6 +12,7 @@ from config import (
     TARGET_MODEL_ID, DATASETS, REGIMES, RESULTS_DIR, SEED, QUANT_MODE,
 )
 from quantization import get_quant_kwargs
+from sampling import sample_next_token
 from utils import set_seed, GPUTimer, write_csv
 
 
@@ -57,41 +55,70 @@ def run_baseline_sample(
     Generate autoregressively for a single sample.
     Returns dict with timing and output info.
     """
+    if max_new_tokens <= 0:
+        return {
+            "latency_s": 0.0,
+            "ttft_ms": 0.0,
+            "tpot_ms": 0.0,
+            "num_tokens": 0,
+            "tokens_per_sec": 0.0,
+            "output_text": "",
+        }
+
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048)
     input_ids = inputs["input_ids"].to(model.device)
-    attention_mask = inputs["attention_mask"].to(model.device)
     n_input = input_ids.shape[1]
 
-    gen_kwargs = dict(
-        max_new_tokens=max_new_tokens,
-        attention_mask=attention_mask,
-        pad_token_id=tokenizer.pad_token_id,
-    )
-    if temperature == 0.0:
-        gen_kwargs["do_sample"] = False
-    else:
-        gen_kwargs["do_sample"] = True
+    gen_kwargs = {"do_sample": temperature != 0.0}
+    if gen_kwargs["do_sample"]:
         gen_kwargs["temperature"] = temperature
         gen_kwargs["top_p"] = top_p
 
-    # --- TTFT: time to first token (single-token generate) ---
+    generated_tokens: list[torch.Tensor] = []
+    eos_token_id = tokenizer.eos_token_id
+
     ttft_timer = GPUTimer()
-    with ttft_timer:
-        first_out = model.generate(input_ids, max_new_tokens=1, **{
-            k: v for k, v in gen_kwargs.items() if k != "max_new_tokens"
-        })
-    ttft_ms = ttft_timer.elapsed_ms
-
-    # --- Full generation ---
     full_timer = GPUTimer()
-    with full_timer:
-        output_ids = model.generate(input_ids, **gen_kwargs)
 
-    new_ids = output_ids[0, n_input:]
-    n_new = len(new_ids)
+    with full_timer:
+        with torch.inference_mode():
+            # Prefix forward + first token (TTFT).
+            with ttft_timer:
+                outputs = model(input_ids, use_cache=True)
+                logits = outputs.logits[:, -1, :]
+                past_key_values = outputs.past_key_values
+                next_token, _ = sample_next_token(logits, gen_kwargs)
+
+            if eos_token_id is None or int(next_token.item()) != int(eos_token_id):
+                generated_tokens.append(next_token)
+                prev_token = next_token
+
+                for _ in range(max_new_tokens - 1):
+                    outputs = model(
+                        prev_token,
+                        use_cache=True,
+                        past_key_values=past_key_values,
+                    )
+                    logits = outputs.logits[:, -1, :]
+                    past_key_values = outputs.past_key_values
+                    next_token, _ = sample_next_token(logits, gen_kwargs)
+
+                    if eos_token_id is not None and int(next_token.item()) == int(eos_token_id):
+                        break
+
+                    generated_tokens.append(next_token)
+                    prev_token = next_token
+
+    if generated_tokens:
+        new_ids = torch.cat(generated_tokens, dim=-1).squeeze(0)
+    else:
+        new_ids = torch.empty((0,), dtype=input_ids.dtype, device=input_ids.device)
+
+    n_new = int(new_ids.numel())
     output_text = tokenizer.decode(new_ids, skip_special_tokens=True)
 
     # TPOT: time per output token (excluding first token)
+    ttft_ms = ttft_timer.elapsed_ms
     tpot_ms = ((full_timer.elapsed_ms - ttft_ms) / max(n_new - 1, 1)) if n_new > 1 else 0.0
     tokens_per_sec = n_new / full_timer.elapsed_s if full_timer.elapsed_s > 0 else 0.0
 
