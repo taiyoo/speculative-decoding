@@ -8,6 +8,32 @@ import re
 from rouge_score import rouge_scorer
 
 
+# Stop sequences: model continues past Final Answer / Summary into a fake
+# next-turn ("Human:", "Question:", etc.). Truncate before scoring so we
+# evaluate the model's actual answer, not its hallucinated continuation.
+STOP_SEQUENCES = (
+    "\nHuman:",
+    "\nQuestion:",
+    "\nQ:",
+    "\n\nQuestion:",
+    "Human:",
+    "<|im_end|>",
+    "<|endoftext|>",
+)
+
+
+def truncate_at_stop(text: str) -> str:
+    """Truncate generated text at the first occurrence of any stop sequence."""
+    if not text:
+        return text
+    earliest = len(text)
+    for stop in STOP_SEQUENCES:
+        idx = text.find(stop)
+        if 0 <= idx < earliest:
+            earliest = idx
+    return text[:earliest]
+
+
 # ── GSM8K: extract final numeric answer ──────────────────────────────────────
 
 _NUM_RE = re.compile(r"[-+]?\d[\d,]*\.?\d*")
@@ -85,6 +111,7 @@ def evaluate_sample(task: str, predicted: str, sample: dict) -> dict:
     """
     Evaluate a single sample, returning a quality dict.
     """
+    predicted = truncate_at_stop(predicted or "")
     if task == "gsm8k":
         correct = gsm8k_exact_match(predicted, sample["answer"])
         return {"metric": "exact_match", "score": 1.0 if correct else 0.0}

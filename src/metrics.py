@@ -81,6 +81,45 @@ def compute_speedup(
     return round(total_base / total_spec, 4) if total_spec > 0 else 0.0
 
 
+def compute_speedup_paired(
+    baseline_results: list[dict],
+    spec_results: list[dict],
+    n_boot: int = 2000,
+    seed: int = 42,
+) -> dict:
+    """
+    Per-sample paired speedup (T_base/T_spec) with bootstrap 95% CI.
+
+    Returns:
+        dict with keys:
+          S_mean, S_median, S_ci_lo, S_ci_hi, n, ratios (list).
+    """
+    base_latency = {r["sample_id"]: r["latency_s"] for r in baseline_results}
+    spec_latency = {r["sample_id"]: r["latency_s"] for r in spec_results}
+    common_ids = sorted(set(base_latency) & set(spec_latency))
+    ratios = np.array([
+        base_latency[sid] / spec_latency[sid]
+        for sid in common_ids
+        if spec_latency[sid] > 0
+    ])
+    if ratios.size == 0:
+        return {"S_mean": 0.0, "S_median": 0.0, "S_ci_lo": 0.0, "S_ci_hi": 0.0, "n": 0}
+
+    rng = np.random.default_rng(seed)
+    boot_means = np.empty(n_boot, dtype=np.float64)
+    n = ratios.size
+    for i in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        boot_means[i] = ratios[idx].mean()
+    return {
+        "S_mean": round(float(ratios.mean()), 4),
+        "S_median": round(float(np.median(ratios)), 4),
+        "S_ci_lo": round(float(np.quantile(boot_means, 0.025)), 4),
+        "S_ci_hi": round(float(np.quantile(boot_means, 0.975)), 4),
+        "n": int(n),
+    }
+
+
 def compute_quality_delta(
     baseline_quality: dict[str, float],
     spec_quality: dict[str, float],
