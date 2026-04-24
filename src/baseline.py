@@ -9,7 +9,8 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from config import (
-    TARGET_MODEL_ID, DATASETS, REGIMES, RESULTS_DIR, SEED, QUANT_MODE,
+    TARGET_MODEL_ID, DATASETS, REGIMES, RESULTS_DIR, SEED,
+    QUANT_MODE, TARGET_QUANT,
 )
 from quantization import get_quant_kwargs
 from sampling import sample_next_token
@@ -17,17 +18,18 @@ from utils import set_seed, GPUTimer, write_csv
 
 
 def _get_quant_kwargs():
-    """Return model loading kwargs based on QUANT_MODE config."""
-    kwargs, _ = get_quant_kwargs()
+    """Return model loading kwargs based on TARGET_QUANT (fallback QUANT_MODE)."""
+    kwargs, _ = get_quant_kwargs(TARGET_QUANT)
     return kwargs
 
 
 def load_target_model():
     """Load the target model and tokenizer once."""
-    quant_kwargs, resolved_quant_mode = get_quant_kwargs()
+    requested = TARGET_QUANT if TARGET_QUANT is not None else QUANT_MODE
+    quant_kwargs, resolved_quant_mode = get_quant_kwargs(TARGET_QUANT)
     print(
         f"Loading target model: {TARGET_MODEL_ID} "
-        f"(quant={QUANT_MODE} -> {resolved_quant_mode})"
+        f"(quant={requested} -> {resolved_quant_mode})"
     )
     tokenizer = AutoTokenizer.from_pretrained(
         TARGET_MODEL_ID, trust_remote_code=True

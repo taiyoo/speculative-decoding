@@ -159,6 +159,40 @@ def ensure_spec_results(ns: dict, draft_label: str) -> dict[str, list[dict]]:
     return results
 
 
+def ensure_hf_assistant_results(
+    ns: dict,
+    draft_label: str = "0.5B",
+    k_values: tuple[int, ...] = (4,),
+    regimes: tuple[str, ...] = ("deterministic", "stochastic"),
+) -> dict[str, list[dict]]:
+    """
+    Run (or load cached) HF built-in ``assistant_model`` speculative decoding
+    for the requested k / regime combinations. Mirrors ``ensure_spec_results``.
+    """
+    data = ensure_data(ns)
+    target_model, target_tokenizer = ensure_target_model(ns)
+    draft_model, _ = ensure_draft_model(ns, draft_label)
+
+    from hf_assistant import run_hf_assistant
+
+    results = ns.setdefault("hf_assistant_results", {})
+    for k in k_values:
+        for regime in regimes:
+            short = "det" if regime == "deterministic" else "stoch"
+            key = f"hfassist_{draft_label}_k{k}_{regime}"
+            csv_path = RESULTS_DIR / f"hfassist_{draft_label}_k{k}_{short}.csv"
+            rows = _read_results_csv(csv_path)
+            if not rows:
+                rows = run_hf_assistant(
+                    data, regime, draft_label, k,
+                    target_model=target_model,
+                    target_tokenizer=target_tokenizer,
+                    assistant_model=draft_model,
+                )
+            results[key] = rows
+    return results
+
+
 def ensure_df_all(ns: dict):
     if "df_all" in ns and not ns["df_all"].empty:
         return ns["df_all"]

@@ -100,7 +100,19 @@ STABILITY_SEEDS = [42, 123, 999]
 
 # ── Quantization ──────────────────────────────────────────────────────────────
 # Options: "fp16", "int8" (bitsandbytes), "fp8" (quanto float8_e4m3)
+#
+# QUANT_MODE is the legacy single-knob default (kept for backward compat: any
+# code path that does not explicitly request a target/draft mode falls back to
+# this value). Prefer TARGET_QUANT / DRAFT_QUANT below.
 QUANT_MODE = "int8"  # was "fp8" — switched because optimum-quanto+torchao crashes on Colab ("Cannot copy out of meta tensor")
+
+# Per-model overrides. Set either to None to inherit QUANT_MODE.
+#
+# Recommended on a 24 GB consumer GPU (e.g. RTX 5090 laptop):
+#     TARGET_QUANT = "int8"   # 7B model, dominates wall-clock cost
+#     DRAFT_QUANT  = "fp16"   # small model on the critical path; avoid bnb dequant tax
+TARGET_QUANT: str | None = "int8"   # 7B target — bnb int8 saves ~7 GB
+DRAFT_QUANT: str | None = "fp16"    # 0.5B draft — full precision, no dequant tax
 
 # ── Success Criteria ──────────────────────────────────────────────────────────
 MIN_SPEEDUP = 1.3          # S >= 1.3x

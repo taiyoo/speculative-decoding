@@ -24,15 +24,24 @@ def _fp16_kwargs() -> dict:
     return {"torch_dtype": torch.float16, "device_map": "auto"}
 
 
-def get_quant_kwargs() -> tuple[dict, str]:
+def get_quant_kwargs(mode: str | None = None) -> tuple[dict, str]:
     """
     Return supported loading kwargs and the resolved quantization mode.
 
+    Parameters
+    ----------
+    mode:
+        Explicit quantization mode override. When ``None`` (default), falls
+        back to the global ``QUANT_MODE`` from :mod:`config`. Use this to
+        load the target and draft models with different precisions, e.g.
+        target=int8, draft=fp16 on a 24 GB GPU.
+
     Falls back to fp16 when optional quantization dependencies are unavailable.
     """
-    mode = (QUANT_MODE or "fp16").lower()
+    resolved = (mode if mode is not None else QUANT_MODE) or "fp16"
+    resolved = resolved.lower()
 
-    if mode == "int8":
+    if resolved == "int8":
         if find_spec("bitsandbytes") is None:
             _warn_once(
                 "QUANT_MODE=int8 requested but bitsandbytes is not installed; "
@@ -47,7 +56,7 @@ def get_quant_kwargs() -> tuple[dict, str]:
             "device_map": "auto",
         }, "int8"
 
-    if mode == "fp8":
+    if resolved == "fp8":
         if find_spec("optimum") is None:
             _warn_once(
                 "QUANT_MODE=fp8 requested but optimum-quanto is not installed; "

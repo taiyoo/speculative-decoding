@@ -22,7 +22,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from config import (
     TARGET_MODEL_ID, DRAFT_MODELS, DATASETS, REGIMES,
     DRAFT_LENGTHS, RESULTS_DIR, STABILITY_DIR, SEED, STABILITY_SEEDS,
-    QUANT_MODE,
+    QUANT_MODE, DRAFT_QUANT,
 )
 from quantization import get_quant_kwargs
 from sampling import probs_from_logits, sample_next_token
@@ -33,16 +33,17 @@ VERIFY_LOG_DIR = RESULTS_DIR / "verify_logs"
 
 
 def _get_quant_kwargs():
-    kwargs, _ = get_quant_kwargs()
+    kwargs, _ = get_quant_kwargs(DRAFT_QUANT)
     return kwargs
 
 
 def load_draft_model(draft_label: str):
     model_id = DRAFT_MODELS[draft_label]
-    quant_kwargs, resolved_quant_mode = get_quant_kwargs()
+    requested = DRAFT_QUANT if DRAFT_QUANT is not None else QUANT_MODE
+    quant_kwargs, resolved_quant_mode = get_quant_kwargs(DRAFT_QUANT)
     print(
         f"Loading draft model: {model_id} "
-        f"(quant={QUANT_MODE} -> {resolved_quant_mode})"
+        f"(quant={requested} -> {resolved_quant_mode})"
     )
     tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
