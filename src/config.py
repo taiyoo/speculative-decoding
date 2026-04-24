@@ -100,7 +100,7 @@ STABILITY_SEEDS = [42, 123, 999]
 
 # ── Quantization ──────────────────────────────────────────────────────────────
 # Options: "fp16", "int8" (bitsandbytes), "fp8" (quanto float8_e4m3)
-QUANT_MODE = "fp8"
+QUANT_MODE = "int8"  # was "fp8" — switched because optimum-quanto+torchao crashes on Colab ("Cannot copy out of meta tensor")
 
 # ── Success Criteria ──────────────────────────────────────────────────────────
 MIN_SPEEDUP = 1.3          # S >= 1.3x

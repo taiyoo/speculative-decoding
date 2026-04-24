@@ -18,14 +18,31 @@ from metrics import compute_latency_metrics
 def bootstrap_notebook():
     """
     Ensure src/ is importable no matter where the notebook cell is executed from.
+
+    Works locally (notebook next to src/) and on Colab (notebook in /content
+    while the repo lives elsewhere on disk).
     """
     cwd = Path.cwd().resolve()
-    candidates = [cwd, cwd.parent, cwd.parent.parent]
+
+    def _has_src(p: Path) -> bool:
+        return (p / "src" / "baseline.py").exists()
+
     project_root = None
-    for candidate in candidates:
-        if (candidate / "src").exists() and (candidate / "experiment.ipynb").exists():
+    # 1. Walk upward from cwd.
+    for candidate in [cwd, *cwd.parents]:
+        if _has_src(candidate):
             project_root = candidate
             break
+    # 2. Common Colab locations.
+    if project_root is None and Path("/content").exists():
+        colab_candidates = [Path("/content")]
+        for child in Path("/content").iterdir():
+            if child.is_dir():
+                colab_candidates.append(child)
+        for candidate in colab_candidates:
+            if _has_src(candidate):
+                project_root = candidate
+                break
     if project_root is None:
         project_root = cwd
 
