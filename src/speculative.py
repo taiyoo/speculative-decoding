@@ -162,11 +162,23 @@ def _verify_block(
             if float(torch.rand(1).item()) < accept_prob:
                 continue
             # Reject: sample from residual max(p - q, 0).
+            # Target and draft may have different vocab sizes (e.g. Qwen2.5-7B
+            # has 152064 while 0.5B/1.5B have 151936). Align on the shared
+            # prefix and renormalise before computing the residual.
             q_logits_i = q_step_logits[i].unsqueeze(0).to(p_probs.device)
             q_probs = probs_from_logits(q_logits_i, gen_kwargs)
-            residual = torch.clamp(p_probs - q_probs, min=0.0)
+            common_vocab = min(p_probs.shape[-1], q_probs.shape[-1])
+            p_common = p_probs[..., :common_vocab]
+            q_common = q_probs[..., :common_vocab]
+            p_sum = float(p_common.sum().item())
+            q_sum = float(q_common.sum().item())
+            if p_sum > 0:
+                p_common = p_common / p_sum
+            if q_sum > 0:
+                q_common = q_common / q_sum
+            residual = torch.clamp(p_common - q_common, min=0.0)
             if float(residual.sum().item()) <= 1e-12:
-                corrected = p_probs
+                corrected = p_common
             else:
                 corrected = residual / residual.sum(dim=-1, keepdim=True)
             emitted = int(torch.multinomial(corrected, 1).item())
