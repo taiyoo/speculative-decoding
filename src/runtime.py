@@ -205,3 +205,97 @@ def ensure_df_all(ns: dict):
             return ns["df_all"]
 
     return pd.DataFrame()
+
+
+# ─── DriftDiffuse helpers (Phases 7/8) ────────────────────────────────────────
+
+def ensure_drifter(
+    ns: dict,
+    checkpoint_path=None,
+    train_if_missing: bool = False,
+    train_overrides: dict | None = None,
+):
+    """
+    Load a trained DriftDiffuser from disk, or optionally train one if missing.
+
+    Returns (drifter_model, schedule).
+    """
+    from pathlib import Path as _Path
+    from config import DRIFTER_CHECKPOINT_DIR, DRIFTER_CONFIG, DRIFTER_TRAIN
+
+    ckpt = _Path(checkpoint_path or (DRIFTER_CHECKPOINT_DIR / "drifter_latest.pt"))
+    if "drifter_model" in ns and "drifter_schedule" in ns:
+        return ns["drifter_model"], ns["drifter_schedule"]
+
+    if not ckpt.exists():
+        if not train_if_missing:
+            raise FileNotFoundError(
+                f"Drifter checkpoint not found: {ckpt}. Run Phase 7 training first "
+                f"or pass train_if_missing=True."
+            )
+        from diffusion.train import train_drifter
+        from diffusion.drifter import DrifterConfig
+        from diffusion.schedule import DriftSchedule
+
+        data = ensure_data(ns)
+        ensure_baseline_results(ns)
+        target_model, target_tokenizer = ensure_target_model(ns)
+        cfg = DrifterConfig(vocab_size=len(target_tokenizer), **DRIFTER_CONFIG)
+        sched = DriftSchedule(
+            n_steps=cfg.n_steps,
+            k_max=cfg.k_max,
+            drift_lambda=DRIFTER_TRAIN.get("drift_lambda", 2.0),
+        )
+        train_kwargs = dict(DRIFTER_TRAIN)
+        train_kwargs.pop("drift_lambda", None)
+        if train_overrides:
+            train_kwargs.update(train_overrides)
+        train_drifter(
+            data, target_tokenizer, cfg=cfg, schedule=sched,
+            save_path=ckpt, **train_kwargs,
+        )
+
+    from diffusion.train import load_drifter
+    model, schedule = load_drifter(ckpt)
+    ns["drifter_model"] = model
+    ns["drifter_schedule"] = schedule
+    return model, schedule
+
+
+def ensure_drift_results(
+    ns: dict,
+    k_values=(8, 16),
+    n_denoise_steps=(3,),
+    accept_modes=("block",),
+    regimes=("deterministic", "stochastic"),
+    label: str = "drift",
+) -> dict[str, list[dict]]:
+    """
+    Run (or load cached) DriftDiffuse speculative decoding for each combo.
+    """
+    from drift_speculative import run_drift_grid
+
+    data = ensure_data(ns)
+    target_model, target_tokenizer = ensure_target_model(ns)
+    drifter, _ = ensure_drifter(ns)
+
+    results = ns.setdefault("drift_results", {})
+    for k in k_values:
+        for n_denoise in n_denoise_steps:
+            for accept_mode in accept_modes:
+                for regime in regimes:
+                    short = "det" if regime == "deterministic" else "stoch"
+                    csv_path = RESULTS_DIR / f"drift_{label}_n{n_denoise}_{accept_mode}_k{k}_{short}.csv"
+                    key = f"{label}_n{n_denoise}_{accept_mode}_k{k}_{regime}"
+                    rows = _read_results_csv(csv_path)
+                    if not rows:
+                        rows = run_drift_grid(
+                            data, drifter, target_model, target_tokenizer,
+                            k=k, regime_name=regime,
+                            n_denoise_steps=n_denoise,
+                            accept_mode=accept_mode,
+                            label=label,
+                        )
+                    results[key] = rows
+    return results
+

@@ -1,0 +1,56 @@
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Vanilla speculative decoding.}
+Leviathan \emph{et al.}~\cite{Leviathan2023} introduced the canonical
+draft--verify scheme: a smaller \emph{draft} model proposes $k$ tokens
+autoregressively and the larger \emph{target} verifies them in a single
+parallel forward pass, with modified rejection sampling guaranteeing that the
+output distribution is identical to that of the target. Chen
+\emph{et al.}~\cite{Chen2023specsampling} concurrently proposed an equivalent
+scheme. The expected per-cycle latency is
+\begin{equation}
+  L \;=\; \frac{T_{\text{draft}} + T_{\text{verify}}}{\tau},
+  \qquad
+  T_{\text{draft}} \;=\; k \cdot t_{\text{draft step}},
+  \label{eq:specdec-latency}
+\end{equation}
+where $\tau \in [1, k{+}1]$ is the expected number of accepted tokens per
+cycle. Wall-clock speedup $S = L_{\text{target}}/L$ therefore depends on the
+draft/target cost ratio and the empirical token acceptance rate $\alpha$.
+Stern \emph{et al.}~\cite{Stern2018blockwise} earlier explored blockwise
+parallel decoding within a single model.
+
+\paragraph{Reducing drafting cost.}
+Medusa~\cite{Cai2024Medusa} eliminates the external draft by attaching
+multiple prediction heads to the target model and verifying the resulting
+candidate tree in one forward pass. The EAGLE
+family~\cite{Li2024Eagle,Li2024Eagle2,Li2025Eagle3} keeps an external draft
+but conditions it on the target's hidden features, reaching $\tau\approx 3$
+and $S\approx 2\times$. Despite these refinements, $T_{\text{draft}}$
+remains linear in $k$, which forces EAGLE-3 to a single transformer layer
+and caps achievable speedups at $\sim$$2$--$3\times$ on strong GPUs.
+
+\paragraph{Diffusion-based drafters.}
+Recent work attacks the linear-in-$k$ drafting bottleneck directly.
+DiffuSpec~\cite{Li2025DiffuSpec} and SpecDiff-2~\cite{Sandler2025SpecDiff2}
+employ pre-trained diffusion LLMs as parallel drafters but rely on
+$\sim$$7$\,B drafters whose memory footprint and per-step latency are
+prohibitive in single-stream serving. PARD~\cite{An2025PARD} trains small
+autoregressive models to mimic diffusion-style parallel generation but caps
+at $\sim$$3\times$. DFlash~\cite{Chen2026dflash} closes this gap with a
+lightweight (5-layer) \emph{block-diffusion} drafter conditioned on target
+hidden features, reporting up to $5\times$ end-to-end speedup over
+autoregressive baselines on H200/B200 hardware.
+
+\paragraph{Position of this work.}
+Our study is the first, to our knowledge, to combine two contributions in
+the same protocol: (i) a controlled empirical evaluation of vanilla
+speculative decoding on consumer-class hardware (RTX 5090,
+Qwen2.5-7B-Instruct quantised to 8-bit via
+\texttt{bitsandbytes}~\cite{Dettmers2022Int8}); and (ii) DriftDiffuse, a
+small ($\sim$30\,M parameters) bidirectional masked-diffusion drafter that
+operates within the consumer-hardware budget while breaking the
+linear-in-$k$ drafting cost. We do not compete with DFlash's H200-class
+numbers; we instead establish the operating regime in which a parallel
+drafter remains useful when the AR draft is already well-tuned.

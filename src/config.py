@@ -114,6 +114,38 @@ QUANT_MODE = "int8"  # was "fp8" — switched because optimum-quanto+torchao cra
 TARGET_QUANT: str | None = "int8"   # 7B target — bnb int8 saves ~7 GB
 DRAFT_QUANT: str | None = "fp16"    # 0.5B draft — full precision, no dequant tax
 
+# ── DriftDiffuse (Phase 7/8) ──────────────────────────────────────────────────
+DRIFTER_CHECKPOINT_DIR = RESULTS_DIR / "drifter_ckpt"
+DRIFTER_CONFIG = {
+    "hidden": 512,
+    "n_layers": 6,
+    "n_heads": 8,
+    "ffn_mult": 4,
+    "max_ctx_len": 768,
+    "k_max": 16,
+    "n_steps": 8,
+    "dropout": 0.0,
+    "tie_embeddings": True,
+}
+DRIFTER_TRAIN = {
+    "regimes": ("deterministic",),
+    "batch_size": 16,
+    "lr": 3e-4,
+    "weight_decay": 0.01,
+    "n_epochs": 1,
+    "max_steps": 2000,           # smoke run; raise for paper run
+    "log_every": 50,
+    "val_every": 500,
+    "val_split": 0.05,
+    "drift_lambda": 2.0,
+}
+DRIFTER_EVAL = {
+    "k_values": (8, 16),
+    "n_denoise_steps": (3,),
+    "accept_modes": ("block", "token"),
+    "regimes": ("deterministic", "stochastic"),
+}
+
 # ── Success Criteria ──────────────────────────────────────────────────────────
 MIN_SPEEDUP = 1.3          # S >= 1.3x
 MAX_QUALITY_DROP = 1.0     # |ΔQ| <= 1.0 point

@@ -1,0 +1,79 @@
+<mxfile host="app.diagrams.net" modified="2026-04-26T00:00:00.000Z" agent="GitHubCopilot" version="22.0.0">
+  <diagram name="DriftDiffuse Pipeline" id="pipe">
+    <mxGraphModel dx="1300" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="DriftDiffuse: parallel speculative decoding with diffusion drafter" style="text;html=1;fontSize=16;fontStyle=1;align=center" vertex="1" parent="1">
+          <mxGeometry x="100" y="20" width="1000" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Stage 1 -->
+        <mxCell id="s1" value="1. Drift Schedule&#10;&#10;t_i = clip(t + λ·i/k, 0, T)&#10;later positions stay&#10;masked longer" style="rounded=1;fillColor=#fff5e6;strokeColor=#666666;fontSize=11;whiteSpace=wrap;align=center" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="220" height="150" as="geometry"/>
+        </mxCell>
+
+        <!-- Stage 2 -->
+        <mxCell id="s2" value="2. Iterative Unmasking&#10;(n_denoise steps — freeze top-confidence positions per step)" style="rounded=1;fillColor=#f6f6fb;strokeColor=#666666;fontSize=11;fontStyle=1;whiteSpace=wrap;align=center;verticalAlign=top;spacingTop=10" vertex="1" parent="1">
+          <mxGeometry x="290" y="80" width="340" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="cell0" value="[M][M][M][M]" style="rounded=1;fillColor=#ffd7d7;strokeColor=#666666;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="305" y="160" width="75" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="cell1" value="x0[M][M][M]" style="rounded=1;fillColor=#dff0d8;strokeColor=#666666;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="385" y="160" width="75" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="cell2" value="x0 x1[M]x3" style="rounded=1;fillColor=#dff0d8;strokeColor=#666666;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="465" y="160" width="75" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="cell3" value="x0 x1 x2 x3" style="rounded=1;fillColor=#dff0d8;strokeColor=#666666;fontSize=9" vertex="1" parent="1">
+          <mxGeometry x="545" y="160" width="75" height="55" as="geometry"/>
+        </mxCell>
+
+        <!-- Stage 3 -->
+        <mxCell id="s3" value="3. Target Verify&#10;&#10;single forward pass&#10;over prefix + draft&#10;→ k+1 logit rows" style="rounded=1;fillColor=#e7f0ff;strokeColor=#666666;fontSize=11;whiteSpace=wrap;align=center" vertex="1" parent="1">
+          <mxGeometry x="660" y="80" width="220" height="150" as="geometry"/>
+        </mxCell>
+
+        <!-- Stage 4 -->
+        <mxCell id="s4" value="4. Accept / Reject&#10;&#10;block-mode&#10;or token-mode" style="rounded=1;fillColor=#dff0d8;strokeColor=#666666;fontSize=11;fontStyle=1;whiteSpace=wrap;align=center" vertex="1" parent="1">
+          <mxGeometry x="910" y="80" width="170" height="150" as="geometry"/>
+        </mxCell>
+
+        <!-- Block mode detail -->
+        <mxCell id="block" value="BLOCK MODE&#10;&#10;Bernoulli on  Π_i p(x_i) / q(x_i)&#10;over the common vocabulary&#10;&#10;On reject → token-level fallback&#10;(unbiased w.r.t. target distribution)" style="rounded=1;fillColor=#eafff0;strokeColor=#666666;fontSize=11;whiteSpace=wrap;align=center" vertex="1" parent="1">
+          <mxGeometry x="60" y="320" width="500" height="170" as="geometry"/>
+        </mxCell>
+
+        <!-- Token mode detail -->
+        <mxCell id="token" value="TOKEN MODE  (Leviathan-style)&#10;&#10;q(x_i | x_&lt;i, ctx) via one batched&#10;drifter forward of size k&#10;(row i reveals positions [0..i))&#10;&#10;Per-token rejection sampling" style="rounded=1;fillColor=#fff0f0;strokeColor=#666666;fontSize=11;whiteSpace=wrap;align=center" vertex="1" parent="1">
+          <mxGeometry x="610" y="320" width="500" height="170" as="geometry"/>
+        </mxCell>
+
+        <!-- Latency note -->
+        <mxCell id="lat" value="Latency:  T_drift = n_denoise · t_drifter   (independent of k)&#10;vs AR draft:  T_draft = k · t_draft_step&#10;→ break-even threshold for k=8 lowered when n_denoise ≪ k" style="rounded=1;fillColor=#fafafa;strokeColor=#666666;fontSize=12;fontStyle=1;whiteSpace=wrap;align=center" vertex="1" parent="1">
+          <mxGeometry x="60" y="540" width="1050" height="110" as="geometry"/>
+        </mxCell>
+
+        <!-- Arrows between stages -->
+        <mxCell id="e12" style="endArrow=classic;html=1;strokeColor=#444444" edge="1" parent="1" source="s1" target="s2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e23" style="endArrow=classic;html=1;strokeColor=#444444" edge="1" parent="1" source="s2" target="s3">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e34" style="endArrow=classic;html=1;strokeColor=#444444" edge="1" parent="1" source="s3" target="s4">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="loop" value="loop until max_new_tokens or EOS" style="endArrow=classic;html=1;strokeColor=#777777;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=1;curved=1;fontSize=10" edge="1" parent="1" source="s4" target="s1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="995" y="280"/>
+              <mxPoint x="150" y="280"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

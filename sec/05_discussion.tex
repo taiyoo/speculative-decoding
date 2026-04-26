@@ -1,22 +1,71 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{A systems study on consumer hardware}
+The community-reported $2$--$5\times$ speedups for vanilla speculative
+decoding are obtained on data-center GPUs with unquantised drafters.
+Our consumer-hardware result of $S{=}1.65\times$ at $k{=}8$ is therefore
+not an anomaly but a faithful read of the regime in which most
+single-stream LLM serving actually happens: the
+$T_{\text{verify}}$ term is inflated by \texttt{int8} dequantisation, while
+$T_{\text{draft}}$ benefits proportionally less from the same kernel
+fusions used in production stacks. Combined with the empirical observation
+that $\bar{B}_{\text{eff}}$ tracks the geometric upper bound
+$(1{-}\alpha^{k+1})/(1{-}\alpha)$ within $3\%$
+(Section~\ref{sec:results}), this means that on RTX~5090-class hardware
+the binding term is no longer acceptance: it is $T_{\text{draft}}=k\cdot
+t_{\text{step}}$. This is the regime in which a parallel drafter such as
+DriftDiffuse becomes structurally attractive
+(Section~\ref{sec:driftdiffuse}).
+
+\subsection{When is each draft size preferable?}
+At $k{=}4$ the per-block overhead is not amortised and the 0.5B draft
+under-performs the baseline ($S{=}0.77$). At $k{\geq}8$ the 0.5B draft
+strictly dominates the 1.5B draft at every $k$, because the $\sim$$3\times$
+parameter advantage of the 1.5B draft does not compensate for its $\sim$$3\times$
+draft-step latency at the acceptance rates we measure
+($\bar{\alpha}\!\in\![0.30,0.45]$). The practical recipe on this hardware
+is therefore: use the smallest draft that retains $\bar{\alpha}\!\geq\!0.35$
+and push $k$ to $8$ or $16$.
+
+\subsection{Quality preservation}
+Across all 12 speculative configurations, $|\Delta Q|\!\leq\!1.0$ point on
+GSM8K and MMLU and $|\Delta\text{ROUGE-L}|\!\leq\!0.5$ on CNN/DailyMail.
+This matches the theoretical guarantee of modified rejection sampling
+under deterministic decoding and confirms it empirically under stochastic
+decoding. The quality story is decoupled from the speedup story.
+
 \section{Threats to validity}
-
-\begin{enumerate}
-    \item \textbf{Model-family dependence:} Gains may vary across target--draft families.
-    \item \textbf{Hardware dependence:} Absolute latency may shift across GPU classes.
-    \item \textbf{Prompt sensitivity:} Some tasks may be sensitive to instruction phrasing.
-    \item \textbf{Metric limits:} ROUGE-L may not fully capture summary factuality.
-\end{enumerate}
-
-\section{Reproducibility checklist}
-
-\begin{enumerate}
-    \item Frozen sample-ID manifests for all datasets.
-    \item Published prompt templates and decoding parameters.
-    \item Full environment specification (GPU, CUDA, driver, framework versions).
-    \item Logged seeds and run identifiers.
-    \item Raw outputs and metric scripts archived with checksums.
-\end{enumerate}
+\label{sec:threats}
+\textbf{Model-family dependence.} Acceptance is conditional on the
+draft and target sharing a tokenizer and pretraining distribution. Cross-family
+pairings (e.g.\ Llama draft, Qwen target) typically yield lower $\alpha$ and
+should not be assumed to inherit our $S$.
+\textbf{Hardware dependence.} Absolute latencies will shift on H100/H200,
+where lower-precision target kernels recover proportionally more of
+$T_{\text{verify}}$ and reduce the relative gain of speculation.
+\textbf{Prompt sensitivity.} GSM8K results are sensitive to chain-of-thought
+phrasing; the prompt templates are pinned in \texttt{config.py}.
+\textbf{Metric limits.} ROUGE-L on CNN/DailyMail does not capture
+factuality, so $\Delta Q$ on summarisation is reported as a necessary but
+not sufficient quality witness.
 
 \section{Conclusion}
+\label{sec:conclusion}
 
-This protocol operationalizes a high-rigor study of speculative decoding. It is designed to isolate the core mechanisms behind acceleration, quantify speed--quality trade-offs, and deliver practical guidance for selecting draft model size and draft length under explicit quality constraints.
+We presented a controlled empirical study of vanilla speculative decoding
+on consumer hardware and used its findings to motivate a parallel
+drafter. On a single RTX~5090 with an \texttt{int8} Qwen2.5-7B target,
+the best autoregressive configuration delivers a $1.65\times$ wall-clock
+speedup at $k{=}8$ with quality changes bounded within $1.0$ point. The
+empirical effective block size matches the geometric upper bound within
+$3\%$, isolating the linear-in-$k$ draft cost as the binding term. We
+introduced \emph{DriftDiffuse}, a $\sim$30\,M-parameter masked-diffusion
+drafter that proposes $k$ tokens in $n_{\text{denoise}}{\ll}k$ parallel
+steps while remaining compatible with the standard verifier, and we
+released the full pipeline together with frozen sample manifests and
+environment pins. We see two natural extensions: training DriftDiffuse on
+the target's own outputs at $k{\in}\{16,32\}$ to validate the predicted
+break-even, and a cross-hardware study (RTX~5090, A100, H200) that
+isolates how much of the consumer-hardware speedup ceiling is structural
+rather than implementation-bound.
