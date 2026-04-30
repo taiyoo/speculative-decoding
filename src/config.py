@@ -17,7 +17,7 @@ STABILITY_DIR = RESULTS_DIR / "stability"
 FIGURES_DIR = PROJECT_ROOT / "figures"
 
 # ── Models ─────────────────────────────────────────────────────────────────────
-TARGET_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+TARGET_MODEL_ID = "Qwen/Qwen2.5-3B-Instruct"
 DRAFT_MODELS = {
     "0.5B": "Qwen/Qwen2.5-0.5B-Instruct",
     "1.5B": "Qwen/Qwen2.5-1.5B-Instruct",
@@ -111,7 +111,7 @@ QUANT_MODE = "int8"  # was "fp8" — switched because optimum-quanto+torchao cra
 # Recommended on a 24 GB consumer GPU (e.g. RTX 5090 laptop):
 #     TARGET_QUANT = "int8"   # 7B model, dominates wall-clock cost
 #     DRAFT_QUANT  = "fp16"   # small model on the critical path; avoid bnb dequant tax
-TARGET_QUANT: str | None = "int8"   # 7B target — bnb int8 saves ~7 GB
+TARGET_QUANT: str | None = "fp16"   # 3B target 
 DRAFT_QUANT: str | None = "fp16"    # 0.5B draft — full precision, no dequant tax
 
 # ── DriftDiffuse (Phase 7/8) ──────────────────────────────────────────────────
