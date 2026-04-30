@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import MANIFESTS_DIR, RESULTS_DIR
+from config import MANIFESTS_DIR, RESULTS_DIR, TARGET_MODEL_ID
 from data_loader import load_all_datasets, freeze_manifests, save_full_data, load_from_manifests
 from evaluate import evaluate_results
 from metrics import compute_latency_metrics
@@ -71,12 +71,34 @@ def ensure_data(ns: dict) -> dict:
 
 
 def ensure_target_model(ns: dict):
+    import importlib
+    import baseline as baseline_module
+    import config as config_module
+
+    def _model_matches_config(model_obj) -> bool:
+        model_name = str(getattr(model_obj, "name_or_path", ""))
+        return model_name == config_module.TARGET_MODEL_ID
+
     if "target_model" in ns and "target_tokenizer" in ns:
-        return ns["target_model"], ns["target_tokenizer"]
+        if _model_matches_config(ns["target_model"]):
+            return ns["target_model"], ns["target_tokenizer"]
+        print(
+            "Cached target model does not match config; reloading "
+            f"{config_module.TARGET_MODEL_ID}."
+        )
 
-    from baseline import load_target_model
+    # Refresh modules so notebook kernels that imported an older config pick up
+    # the latest TARGET_MODEL_ID before loading a new target model.
+    config_module = importlib.reload(config_module)
+    baseline_module = importlib.reload(baseline_module)
 
-    target_model, target_tokenizer = load_target_model()
+    target_model, target_tokenizer = baseline_module.load_target_model()
+    loaded_name = str(getattr(target_model, "name_or_path", ""))
+    if loaded_name != config_module.TARGET_MODEL_ID:
+        raise RuntimeError(
+            "Loaded target model does not match config: "
+            f"loaded={loaded_name}, expected={config_module.TARGET_MODEL_ID}"
+        )
     ns["target_model"] = target_model
     ns["target_tokenizer"] = target_tokenizer
     return target_model, target_tokenizer
