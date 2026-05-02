@@ -1,0 +1,13 @@
+sample_id,task,mode,draft,k,regime,target_device,draft_device,adaptive_k,profile,latency_s,ttft_ms,tpot_ms,num_tokens,tokens_per_sec,total_proposed,total_accepted,n_verify_steps,k_max,k_final,alpha,B_eff,stopped_eos,output_text,draft_elapsed_s,verify_elapsed_s
+fast_en_001,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,fp16_target_fp16_draft,0.3324,33.87,27.14,12,36.1,13,8,4,4,4,0.6154,2.0,False," Leaves are green because they contain chlorophyll, a pigment",0.195278,0.092187
+fast_en_002,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,fp16_target_fp16_draft,0.3824,26.43,32.36,12,31.38,18,8,5,4,4,0.4444,1.6,False, 1. Create a conducive study environment: Choose a quiet,0.264749,0.108981
+fast_en_003,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,fp16_target_fp16_draft,0.4941,26.37,42.52,12,24.28,23,6,7,4,4,0.2609,0.86,False, Sure! Imagine you have a big box of Lego blocks.,0.334976,0.148709
+fast_en_004,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,fp16_target_fp16_draft,0.3644,26.03,30.76,12,32.93,17,7,5,4,4,0.4118,1.4,False, Regular exercise offers numerous benefits to both physical and mental health.,0.247081,0.107834
+fast_en_005,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,fp16_target_fp16_draft,0.3133,26.6,26.06,12,38.31,15,9,4,4,4,0.6,2.25,False," An API, or Application Programming Interface, is a set of",0.220013,0.087222
+fast_en_006,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,fp16_target_fp16_draft,0.3973,26.51,33.71,12,30.21,19,8,5,4,4,0.4211,1.6,False," Supervised learning uses labeled data to predict outcomes, while uns",0.278919,0.109655
+fast_en_007,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,fp16_target_fp16_draft,0.2857,27.87,23.44,12,42.01,13,8,4,4,4,0.6154,2.0,False, Overfitting is a phenomenon in machine learning where a model,0.190844,0.087065
+fast_en_008,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,fp16_target_fp16_draft,0.3017,26.3,25.04,12,39.77,14,9,4,4,4,0.6429,2.25,False," Two ways to reduce energy consumption at home are:
+
+1.",0.207708,0.086836
+fast_en_009,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,fp16_target_fp16_draft,0.3143,26.44,26.16,12,38.19,15,9,4,4,4,0.6,2.25,False, Version control is a system that allows multiple people to work on,0.218459,0.088175
+fast_en_010,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,fp16_target_fp16_draft,0.5105,28.66,43.8,12,23.51,24,5,7,4,4,0.2083,0.71,False, Use active voice and a positive tone. Use a single sentence,0.347545,0.149857

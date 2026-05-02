@@ -1,0 +1,16 @@
+================================================================================================
+QUICK QUANT DEBUG REPORT
+================================================================================================
+Timestamp: 2026-05-02T18:47:39
+CUDA devices: 2
+Settings: k=4, max_new_tokens=12, temp=0.0, top_p=1.0, adaptive_k=False
+Placement: target_device=cuda:0, draft_device=cuda:0, colocate=True
+
+Potential issues detected:
+1. [Fairness] Baseline latency changed significantly across profiles: int8_target_fp16_draft vs fp16_target_fp16_draft ratio=6.10x. Cross-profile speedup is influenced by target precision, not only speculative mechanics.
+2. [Verify bottleneck] int8_target_fp16_draft verify share is 76.0% (>70%). Target forward likely dominates runtime.
+3. [Sample sensitivity] 9/10 samples flip slow/fast sign between fp16_target_fp16_draft and int8_target_fp16_draft.
+
+Per-profile key metrics:
+- fp16_target_fp16_draft | status=ok | speedup=0.8498x | base=0.3004s spec=0.3711s | draft=0.2537s verify=0.1078s | alpha=0.4820 | slower=9/10
+- int8_target_fp16_draft | status=ok | speedup=1.7268x | base=1.8319s spec=1.0891s | draft=0.2500s verify=0.8275s | alpha=0.4898 | slower=0/10

@@ -1,0 +1,13 @@
+sample_id,task,mode,draft,k,regime,target_device,draft_device,adaptive_k,latency_s,ttft_ms,tpot_ms,num_tokens,tokens_per_sec,total_proposed,total_accepted,n_verify_steps,k_max,k_final,alpha,B_eff,stopped_eos,output_text,draft_elapsed_s,verify_elapsed_s
+fast_en_001,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,0.289,26.81,23.84,12,41.52,13,8,4,4,4,0.6154,2.0,False," Leaves are green because they contain chlorophyll, a pigment",0.194278,0.088519
+fast_en_002,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,0.3824,27.47,32.27,12,31.38,18,8,5,4,4,0.4444,1.6,False, 1. Create a conducive study environment: Choose a quiet,0.263228,0.110335
+fast_en_003,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,0.4969,26.09,42.8,12,24.15,23,6,7,4,4,0.2609,0.86,False, Sure! Imagine you have a big box of Lego blocks.,0.336133,0.150304
+fast_en_004,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,0.3651,26.55,30.78,12,32.86,17,7,5,4,4,0.4118,1.4,False, Regular exercise offers numerous benefits to both physical and mental health.,0.248562,0.108889
+fast_en_005,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,0.3185,27.08,26.49,12,37.67,15,9,4,4,4,0.6,2.25,False," An API, or Application Programming Interface, is a set of",0.223699,0.088129
+fast_en_006,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,0.3981,26.39,33.79,12,30.14,19,8,5,4,4,0.4211,1.6,False," Supervised learning uses labeled data to predict outcomes, while uns",0.279171,0.111401
+fast_en_007,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,0.288,26.46,23.77,12,41.67,13,8,4,4,4,0.6154,2.0,False, Overfitting is a phenomenon in machine learning where a model,0.192444,0.088301
+fast_en_008,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,0.3033,26.71,25.14,12,39.56,14,9,4,4,4,0.6429,2.25,False," Two ways to reduce energy consumption at home are:
+
+1.",0.209204,0.088231
+fast_en_009,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,0.3176,27.58,26.37,12,37.78,15,9,4,4,4,0.6,2.25,False, Version control is a system that allows multiple people to work on,0.22067,0.090152
+fast_en_010,quick_en,speculative,0.5B_quick,4,deterministic,cuda:0,cuda:0,False,0.5341,27.71,46.03,12,22.47,24,5,7,4,4,0.2083,0.71,False, Use active voice and a positive tone. Use a single sentence,0.369518,0.151006

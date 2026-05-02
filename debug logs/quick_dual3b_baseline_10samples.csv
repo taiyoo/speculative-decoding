@@ -1,0 +1,18 @@
+sample_id,task,mode,k,regime,seed,latency_s,ttft_ms,tpot_ms,num_tokens,tokens_per_sec,output_text
+quick_en_001,quick_en,baseline,0,deterministic,42,0.9109,211.43,22.56,32,35.13," The sky appears blue because the Earth's atmosphere scatters sunlight in all directions and blue light is scattered more than other colors because it travels as shorter, smaller waves"
+quick_en_002,quick_en,baseline,0,deterministic,42,0.7206,27.13,22.37,32,44.41," Improving sleep quality is crucial for overall health and well-being. Here are three practical tips to help you achieve better sleep:
+
+1. Establish a Consistent Sleep"
+quick_en_003,quick_en,baseline,0,deterministic,42,0.7174,26.42,22.29,32,44.61," Machine learning is like teaching a computer to learn on its own, without being explicitly programmed. It's about giving the computer a bunch of data and letting it figure"
+quick_en_004,quick_en,baseline,0,deterministic,42,0.7203,27.18,22.36,32,44.43," Python and C++ are two of the most popular programming languages used in software development. While both languages are powerful and versatile, they have different strengths and weaknesses.
+
+"
+quick_en_005,quick_en,baseline,0,deterministic,42,0.7179,26.39,22.31,32,44.57," 1. Greek Yogurt Parfait: Layer Greek yogurt with fresh berries and a sprinkle of granola for a protein-packed, fiber-rich breakfast.
+2."
+quick_en_006,quick_en,baseline,0,deterministic,42,0.7146,26.24,22.2,32,44.78," Sure! Let's imagine photosynthesis is like a magical recipe that plants use to make their food and grow. Here’s how it works:
+
+1. **Ingredients"
+quick_en_007,quick_en,baseline,0,deterministic,42,0.7167,26.55,22.26,32,44.65," 1. Research the company and the position: Understand the company's mission, values, and culture. Familiarize yourself with the job description and the qualifications"
+quick_en_008,quick_en,baseline,0,deterministic,42,0.7155,26.19,22.23,32,44.73," Weather refers to the short-term atmospheric conditions in a specific location, such as temperature, humidity, wind speed, and precipitation. It can change rapidly and is influenced"
+quick_en_009,quick_en,baseline,0,deterministic,42,0.7167,27.14,22.24,32,44.65," Data privacy is crucial because it ensures that individuals' personal information is protected from unauthorized access, use, and disclosure. It helps to prevent identity theft, fraud,"
+quick_en_010,quick_en,baseline,0,deterministic,42,0.7158,26.32,22.24,32,44.7," Day 1: Warm-up (5-10 minutes), 3 sets of 10-12 reps of squats, push-ups, and"

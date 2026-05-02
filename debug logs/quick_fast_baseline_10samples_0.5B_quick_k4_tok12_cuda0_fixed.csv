@@ -1,0 +1,13 @@
+sample_id,task,mode,k,regime,latency_s,ttft_ms,tpot_ms,num_tokens,tokens_per_sec,output_text
+fast_en_001,quick_en,baseline,0,deterministic,0.2771,28.13,22.63,12,43.31," Leaves are green because they contain chlorophyll, a pigment"
+fast_en_002,quick_en,baseline,0,deterministic,0.2757,26.41,22.66,12,43.53, 1. Create a conducive study environment: Choose a quiet
+fast_en_003,quick_en,baseline,0,deterministic,0.2752,27.17,22.55,12,43.61, Sure! Imagine you have a big box of Lego blocks.
+fast_en_004,quick_en,baseline,0,deterministic,0.2873,26.9,23.67,12,41.77, Regular exercise offers numerous benefits to both physical and mental health.
+fast_en_005,quick_en,baseline,0,deterministic,0.2731,26.2,22.44,12,43.94," An API, or Application Programming Interface, is a set of"
+fast_en_006,quick_en,baseline,0,deterministic,0.2732,27.16,22.36,12,43.93," Supervised learning uses labeled data to predict outcomes, while uns"
+fast_en_007,quick_en,baseline,0,deterministic,0.2746,27.19,22.49,12,43.7, Overfitting is a phenomenon in machine learning where a model
+fast_en_008,quick_en,baseline,0,deterministic,0.2745,27.22,22.48,12,43.72," Two ways to reduce energy consumption at home are:
+
+1."
+fast_en_009,quick_en,baseline,0,deterministic,0.2726,26.4,22.38,12,44.03, Version control is a system that allows multiple people to work on
+fast_en_010,quick_en,baseline,0,deterministic,0.2753,28.11,22.48,12,43.58, Use active voice and a positive tone. Use a single sentence

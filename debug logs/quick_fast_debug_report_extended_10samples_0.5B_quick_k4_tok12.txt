@@ -1,0 +1,20 @@
+========================================================================================================
+EXTENDED DEBUG REPORT
+========================================================================================================
+Timestamp: 2026-05-02T18:58:21
+
+Best profile by decode-only speedup:
+- int8_target_fp16_draft (decode_only_speedup=1.7075x)
+
+Best profile by end-to-end-with-load speedup:
+- int8_target_fp16_draft (e2e_with_load_speedup=1.4144x)
+
+Fixed-target draft-only comparisons:
+- target=fp16:
+  fp16_target_fp16_draft | draft=fp16 | decode_only=0.8170x | e2e_with_load=0.8086x
+- target=int8:
+  int8_target_fp16_draft | draft=fp16 | decode_only=1.7075x | e2e_with_load=1.4144x
+  int8_target_int8_draft | draft=int8 | decode_only=0.6356x | e2e_with_load=0.6690x
+
+Potential caveats:
+- Verify-dominant runtime in 1 profile(s); target forward path is the primary bottleneck.

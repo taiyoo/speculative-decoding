@@ -1,0 +1,13 @@
+sample_id,task,mode,k,regime,latency_s,ttft_ms,tpot_ms,num_tokens,tokens_per_sec,output_text
+fast_en_001,quick_en,baseline,0,deterministic,1.7909,265.38,138.69,12,6.7," Leaves are green because they contain chlorophyll, a pigment"
+fast_en_002,quick_en,baseline,0,deterministic,1.88,166.5,155.77,12,6.38, 1. Create a conducive study environment: One of the
+fast_en_003,quick_en,baseline,0,deterministic,2.0024,227.84,161.32,12,5.99, Cloud computing is like renting a big library of books and movies
+fast_en_004,quick_en,baseline,0,deterministic,1.641,158.87,134.73,12,7.31, Regular exercise offers numerous benefits to both physical and mental health.
+fast_en_005,quick_en,baseline,0,deterministic,1.751,173.92,143.37,12,6.85," An API, or Application Programming Interface, is a set of"
+fast_en_006,quick_en,baseline,0,deterministic,1.817,181.9,148.64,12,6.6," Supervised learning uses labeled data to train models, while uns"
+fast_en_007,quick_en,baseline,0,deterministic,2.1101,198.41,173.79,12,5.69, Overfitting in machine learning is a situation where a model
+fast_en_008,quick_en,baseline,0,deterministic,1.611,159.84,131.93,12,7.45," Two ways to reduce energy consumption at home are:
+
+1."
+fast_en_009,quick_en,baseline,0,deterministic,1.7649,175.54,144.48,12,6.8, Version control is a system that allows multiple people to work on
+fast_en_010,quick_en,baseline,0,deterministic,1.7854,180.09,145.93,12,6.72," Use the abbreviation ""TL;DR"" for ""Too Long"

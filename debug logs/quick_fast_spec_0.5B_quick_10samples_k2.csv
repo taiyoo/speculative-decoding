@@ -1,0 +1,13 @@
+sample_id,task,mode,draft,k,regime,latency_s,ttft_ms,tpot_ms,num_tokens,tokens_per_sec,total_proposed,total_accepted,n_verify_steps,k_max,k_final,adaptive_k,alpha,B_eff,stopped_eos,output_text,draft_elapsed_s,verify_elapsed_s
+fast_en_001,quick_en,speculative,0.5B_quick,2,deterministic,2.1468,27.76,141.27,16,7.45,13,9,8,2,2,True,0.6923,1.12,False," Leaves are green because they contain chlorophyll, a pigment essential for photosynthesis",1.13703,0.155266
+fast_en_002,quick_en,speculative,0.5B_quick,2,deterministic,2.4522,32.6,161.3,16,6.52,14,7,9,2,1,True,0.5,0.78,False, 1. Create a conducive study environment: Choose a quiet and comfortable place to,1.106645,0.170666
+fast_en_003,quick_en,speculative,0.5B_quick,2,deterministic,2.8637,47.72,187.73,16,5.59,15,5,11,2,1,True,0.3333,0.45,False, Sure! Imagine you have a big box of Lego blocks. These blocks are like,1.061743,0.205891
+fast_en_004,quick_en,speculative,0.5B_quick,2,deterministic,2.8759,66.72,187.28,16,5.56,15,5,11,2,1,True,0.3333,0.45,False, Regular exercise offers numerous benefits to both physical and mental health. Here are three key,1.060184,0.208976
+fast_en_005,quick_en,speculative,0.5B_quick,2,deterministic,2.1901,26.64,144.23,16,7.31,13,8,8,2,2,True,0.6154,1.0,False," An API, or Application Programming Interface, is a set of rules and protocols for",1.082115,0.153105
+fast_en_006,quick_en,speculative,0.5B_quick,2,deterministic,2.3297,35.98,152.91,16,6.87,13,7,9,2,1,True,0.5385,0.78,False," Supervised learning uses labeled data to predict outcomes, while unsupervised learning finds",0.942087,0.170563
+fast_en_007,quick_en,speculative,0.5B_quick,2,deterministic,2.1879,47.73,142.68,16,7.31,12,10,7,2,2,True,0.8333,1.43,False, Overfitting is a phenomenon in machine learning where a model learns the training data,1.03143,0.133407
+fast_en_008,quick_en,speculative,0.5B_quick,2,deterministic,2.1566,27.4,141.95,16,7.42,13,9,8,2,2,True,0.6923,1.12,False," Two ways to reduce energy consumption at home are:
+
+1. Use energy-efficient appliances",1.109532,0.153149
+fast_en_009,quick_en,speculative,0.5B_quick,2,deterministic,2.6798,34.77,176.34,16,5.97,14,7,9,2,1,True,0.5,0.78,False, Version control is a system that allows multiple people to work on the same project or,1.160284,0.172079
+fast_en_010,quick_en,speculative,0.5B_quick,2,deterministic,3.28,137.99,209.47,16,4.88,17,3,14,2,2,True,0.1765,0.21,False, Use active voice and a positive tone. Use a single sentence. Make your tip,0.988723,0.263001
