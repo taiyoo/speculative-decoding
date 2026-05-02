@@ -23,16 +23,19 @@ from config import (
     TARGET_QUANT, DRAFT_QUANT,
 )
 from quantization import get_quant_kwargs
+from hf_utils import apply_hf_mode_env, hf_model_kwargs
 from utils import set_seed, GPUTimer, write_csv
 
 
 def _load_model(model_id: str, quant_mode: str | None = None):
+    apply_hf_mode_env()
     quant_kwargs, _ = get_quant_kwargs(quant_mode)
-    tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    hf_kwargs = hf_model_kwargs()
+    tok = AutoTokenizer.from_pretrained(model_id, **hf_kwargs)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
     mdl = AutoModelForCausalLM.from_pretrained(
-        model_id, **quant_kwargs, trust_remote_code=True
+        model_id, **quant_kwargs, **hf_kwargs
     )
     mdl.eval()
     return mdl, tok

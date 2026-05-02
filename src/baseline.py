@@ -14,6 +14,7 @@ from config import (
 )
 from quantization import get_quant_kwargs
 from sampling import sample_next_token
+from hf_utils import apply_hf_mode_env, hf_model_kwargs
 from utils import set_seed, GPUTimer, write_csv
 
 
@@ -25,19 +26,19 @@ def _get_quant_kwargs():
 
 def load_target_model():
     """Load the target model and tokenizer once."""
+    offline = apply_hf_mode_env()
     requested = TARGET_QUANT if TARGET_QUANT is not None else QUANT_MODE
     quant_kwargs, resolved_quant_mode = get_quant_kwargs(TARGET_QUANT)
     print(
         f"Loading target model: {TARGET_MODEL_ID} "
-        f"(quant={requested} -> {resolved_quant_mode})"
+        f"(quant={requested} -> {resolved_quant_mode}, offline_first={offline})"
     )
-    tokenizer = AutoTokenizer.from_pretrained(
-        TARGET_MODEL_ID, trust_remote_code=True
-    )
+    hf_kwargs = hf_model_kwargs()
+    tokenizer = AutoTokenizer.from_pretrained(TARGET_MODEL_ID, **hf_kwargs)
     model = AutoModelForCausalLM.from_pretrained(
         TARGET_MODEL_ID,
         **quant_kwargs,
-        trust_remote_code=True,
+        **hf_kwargs,
     )
     model.eval()
     if tokenizer.pad_token is None:

@@ -9,9 +9,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import MANIFESTS_DIR, RESULTS_DIR, TARGET_MODEL_ID
+from config import MANIFESTS_DIR, RESULTS_DIR, TARGET_MODEL_ID, TARGET_QUANT
 from data_loader import load_all_datasets, freeze_manifests, save_full_data, load_from_manifests
 from evaluate import evaluate_results
+from hf_utils import apply_hf_mode_env
 from metrics import compute_latency_metrics
 
 
@@ -23,6 +24,7 @@ def bootstrap_notebook():
     while the repo lives elsewhere on disk).
     """
     cwd = Path.cwd().resolve()
+    apply_hf_mode_env()
 
     def _has_src(p: Path) -> bool:
         return (p / "src" / "baseline.py").exists()
@@ -320,4 +322,84 @@ def ensure_drift_results(
                         )
                     results[key] = rows
     return results
+
+
+def ensure_dual_3b_results(
+    ns: dict,
+    k: int = 4,
+    max_samples: int = 200,
+    target_device: str = "cuda:0",
+    draft_device: str = "cuda:1",
+    regimes: tuple[str, ...] = ("deterministic", "stochastic"),
+    draft_label: str = "3B_dual",
+    show_realtime_progress: bool = True,
+    force_rerun: bool = False,
+) -> dict[str, list[dict]]:
+    """
+    Run or load a dual-3B speculative experiment where target and draft are
+    pinned to different GPUs and evaluated on the first `max_samples` rows.
+    """
+    data = ensure_data(ns)
+
+    from speculative import (
+        load_model_on_device,
+        run_dual_3b_subset,
+    )
+
+    target_key = "target_model_dual3b"
+    target_tok_key = "target_tokenizer_dual3b"
+    draft_key = "draft_model_dual3b"
+    draft_tok_key = "draft_tokenizer_dual3b"
+
+    if target_key not in ns or target_tok_key not in ns:
+        target_model, target_tokenizer = load_model_on_device(
+            TARGET_MODEL_ID,
+            target_device,
+            TARGET_QUANT,
+        )
+        ns[target_key] = target_model
+        ns[target_tok_key] = target_tokenizer
+    else:
+        target_model = ns[target_key]
+        target_tokenizer = ns[target_tok_key]
+
+    if draft_key not in ns or draft_tok_key not in ns:
+        draft_model, draft_tokenizer = load_model_on_device(
+            TARGET_MODEL_ID,
+            draft_device,
+            TARGET_QUANT,
+        )
+        ns[draft_key] = draft_model
+        ns[draft_tok_key] = draft_tokenizer
+    else:
+        draft_model = ns[draft_key]
+        draft_tokenizer = ns[draft_tok_key]
+
+    results_store = ns.setdefault("spec_results_3b_dual", {})
+    for regime in regimes:
+        short = "det" if regime == "deterministic" else "stoch"
+        key = f"{draft_label}_k{k}_{regime}"
+        csv_path = RESULTS_DIR / f"spec_{draft_label}_k{k}_{short}.csv"
+        rows = [] if force_rerun else _read_results_csv(csv_path)
+        if not rows:
+            rows = run_dual_3b_subset(
+                data,
+                regime,
+                k=k,
+                max_samples=max_samples,
+                target_device=target_device,
+                draft_device=draft_device,
+                draft_model_id=TARGET_MODEL_ID,
+                draft_label=draft_label,
+                target_model=target_model,
+                target_tokenizer=target_tokenizer,
+                draft_model=draft_model,
+                draft_tokenizer=draft_tokenizer,
+                show_realtime_progress=show_realtime_progress,
+            )
+        else:
+            print(f"Loaded existing dual-3B results from {csv_path}; set force_rerun=True for live progress bars")
+        results_store[key] = rows
+
+    return results_store
 

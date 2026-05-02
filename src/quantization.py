@@ -21,7 +21,15 @@ def _warn_once(message: str) -> None:
 
 
 def _fp16_kwargs() -> dict:
-    return {"torch_dtype": torch.float16, "device_map": "auto"}
+    kwargs = {"torch_dtype": torch.float16}
+    if find_spec("accelerate") is not None:
+        kwargs["device_map"] = "auto"
+    else:
+        _warn_once(
+            "accelerate is not installed; loading without device_map. "
+            "Install accelerate for automatic multi-device placement."
+        )
+    return kwargs
 
 
 def get_quant_kwargs(mode: str | None = None) -> tuple[dict, str]:
@@ -42,6 +50,12 @@ def get_quant_kwargs(mode: str | None = None) -> tuple[dict, str]:
     resolved = resolved.lower()
 
     if resolved == "int8":
+        if find_spec("accelerate") is None:
+            _warn_once(
+                "QUANT_MODE=int8 requested but accelerate is not installed; "
+                "falling back to fp16."
+            )
+            return _fp16_kwargs(), "fp16"
         if find_spec("bitsandbytes") is None:
             _warn_once(
                 "QUANT_MODE=int8 requested but bitsandbytes is not installed; "
@@ -57,6 +71,12 @@ def get_quant_kwargs(mode: str | None = None) -> tuple[dict, str]:
         }, "int8"
 
     if resolved == "fp8":
+        if find_spec("accelerate") is None:
+            _warn_once(
+                "QUANT_MODE=fp8 requested but accelerate is not installed; "
+                "falling back to fp16."
+            )
+            return _fp16_kwargs(), "fp16"
         if find_spec("optimum") is None:
             _warn_once(
                 "QUANT_MODE=fp8 requested but optimum-quanto is not installed; "

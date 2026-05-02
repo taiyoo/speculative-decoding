@@ -11,6 +11,7 @@ from pathlib import Path
 from datasets import load_dataset
 
 from config import DATASETS, MANIFESTS_DIR, PROMPTS, SEED
+from hf_utils import apply_hf_mode_env, hf_model_kwargs
 from utils import set_seed
 
 
@@ -170,9 +171,11 @@ def verify_tokenizer_compatibility() -> bool:
     from config import TARGET_MODEL_ID, DRAFT_MODELS
 
     model_ids = [TARGET_MODEL_ID] + list(DRAFT_MODELS.values())
+    apply_hf_mode_env()
+    hf_kwargs = hf_model_kwargs()
     vocabs = {}
     for mid in model_ids:
-        tok = AutoTokenizer.from_pretrained(mid, trust_remote_code=True)
+        tok = AutoTokenizer.from_pretrained(mid, **hf_kwargs)
         vocabs[mid] = tok.vocab_size
         print(f"  {mid}: vocab_size = {tok.vocab_size}")
 
@@ -215,14 +218,17 @@ if __name__ == "__main__":
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from config import TARGET_MODEL_ID
+        from hf_utils import apply_hf_mode_env, hf_model_kwargs
         from utils import GPUTimer
 
-        tok = AutoTokenizer.from_pretrained(TARGET_MODEL_ID, trust_remote_code=True)
+        apply_hf_mode_env()
+        hf_kwargs = hf_model_kwargs()
+        tok = AutoTokenizer.from_pretrained(TARGET_MODEL_ID, **hf_kwargs)
         model = AutoModelForCausalLM.from_pretrained(
             TARGET_MODEL_ID,
             torch_dtype=torch.float16,
             device_map="auto",
-            trust_remote_code=True,
+            **hf_kwargs,
         )
 
         gsm_samples = data["gsm8k"][: args.smoke_test]

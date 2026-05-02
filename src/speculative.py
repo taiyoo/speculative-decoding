@@ -14,18 +14,21 @@ Supports both deterministic and stochastic regimes.
 """
 
 import json
+import time
 from pathlib import Path
 
 import torch
+from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from config import (
     TARGET_MODEL_ID, DRAFT_MODELS, DATASETS, REGIMES,
     DRAFT_LENGTHS, RESULTS_DIR, STABILITY_DIR, SEED, STABILITY_SEEDS,
-    QUANT_MODE, DRAFT_QUANT,
+    QUANT_MODE, DRAFT_QUANT, TARGET_QUANT,
 )
 from quantization import get_quant_kwargs
 from sampling import probs_from_logits, sample_next_token
+from hf_utils import apply_hf_mode_env, hf_model_kwargs
 from utils import set_seed, GPUTimer, write_csv
 
 
@@ -38,23 +41,94 @@ def _get_quant_kwargs():
 
 
 def load_draft_model(draft_label: str):
+    offline = apply_hf_mode_env()
     model_id = DRAFT_MODELS[draft_label]
     requested = DRAFT_QUANT if DRAFT_QUANT is not None else QUANT_MODE
     quant_kwargs, resolved_quant_mode = get_quant_kwargs(DRAFT_QUANT)
     print(
         f"Loading draft model: {model_id} "
-        f"(quant={requested} -> {resolved_quant_mode})"
+        f"(quant={requested} -> {resolved_quant_mode}, offline_first={offline})"
     )
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    hf_kwargs = hf_model_kwargs()
+    tokenizer = AutoTokenizer.from_pretrained(model_id, **hf_kwargs)
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
         **quant_kwargs,
-        trust_remote_code=True,
+        **hf_kwargs,
     )
     model.eval()
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     return model, tokenizer
+
+
+def _resolve_device(device: str) -> str:
+    """Resolve an explicit device string and validate CUDA availability."""
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        raise RuntimeError(f"Requested device '{device}' but CUDA is not available")
+    return device
+
+
+def load_model_on_device(
+    model_id: str,
+    device: str,
+    quant_mode: str | None,
+):
+    """
+    Load a model/tokenizer pair on a specific device.
+
+    This is used by notebook experiments that pin target/draft to different GPUs.
+    """
+    device = _resolve_device(device)
+    offline = apply_hf_mode_env()
+    requested = quant_mode if quant_mode is not None else QUANT_MODE
+    quant_kwargs, resolved_quant_mode = get_quant_kwargs(quant_mode)
+    quant_kwargs = dict(quant_kwargs)
+    quant_kwargs.pop("device_map", None)
+
+    if "quantization_config" in quant_kwargs:
+        # Explicit placement for quantized loads.
+        quant_kwargs["device_map"] = {"": device}
+
+    print(
+        f"Loading model: {model_id} "
+        f"(device={device}, quant={requested} -> {resolved_quant_mode}, offline_first={offline})"
+    )
+    hf_kwargs = hf_model_kwargs()
+    tokenizer = AutoTokenizer.from_pretrained(model_id, **hf_kwargs)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        **quant_kwargs,
+        **hf_kwargs,
+    )
+
+    if "device_map" not in quant_kwargs:
+        model = model.to(device)
+
+    model.eval()
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    return model, tokenizer
+
+
+def _first_n_samples_by_task(
+    data: dict[str, list[dict]],
+    max_samples: int,
+) -> dict[str, list[dict]]:
+    """Take the first `max_samples` across tasks while preserving task grouping/order."""
+    if max_samples <= 0:
+        return {}
+
+    remaining = max_samples
+    subset: dict[str, list[dict]] = {}
+    for task_name, samples in data.items():
+        if remaining <= 0:
+            break
+        take_n = min(len(samples), remaining)
+        if take_n > 0:
+            subset[task_name] = samples[:take_n]
+            remaining -= take_n
+    return subset
 
 
 def _crop_cache(past_key_values, length: int):
@@ -209,6 +283,7 @@ def speculative_decode_sample(
     k: int,
     temperature: float,
     top_p: float,
+    return_timing_breakdown: bool = False,
 ) -> dict:
     """Run speculative decoding for a single sample with full KV-cache reuse."""
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048)
@@ -240,6 +315,8 @@ def speculative_decode_sample(
     n_verify_steps = 0
     verify_log: list[dict] = []
     stopped_eos = False
+    draft_elapsed_s_total = 0.0
+    verify_elapsed_s_total = 0.0
 
     ttft_timer = GPUTimer()
     full_timer = GPUTimer()
@@ -252,6 +329,7 @@ def speculative_decode_sample(
                 break
 
             # ---- Draft phase ----
+            draft_started_at = time.perf_counter()
             draft_tokens, q_token_probs, q_step_logits, draft_past = _draft_generate(
                 draft_model,
                 draft_pending_input,
@@ -260,6 +338,7 @@ def speculative_decode_sample(
                 gen_kwargs,
                 keep_step_logits,
             )
+            draft_elapsed_s_total += time.perf_counter() - draft_started_at
 
             # ---- Verify phase ----
             if draft_device != target_device:
@@ -272,12 +351,14 @@ def speculative_decode_sample(
             if n_verify_steps == 0:
                 ttft_timer.__enter__()
 
+            verify_started_at = time.perf_counter()
             with torch.inference_mode():
                 target_outputs = target_model(
                     target_input,
                     past_key_values=target_past,
                     use_cache=True,
                 )
+            verify_elapsed_s_total += time.perf_counter() - verify_started_at
             target_past = target_outputs.past_key_values
 
             # Last (k+1) logits = predictions for the next k+1 positions
@@ -350,7 +431,7 @@ def speculative_decode_sample(
     alpha = total_accepted / total_proposed if total_proposed > 0 else 0.0
     b_eff = total_accepted / n_verify_steps if n_verify_steps > 0 else 0.0
 
-    return {
+    result = {
         "latency_s": round(full_timer.elapsed_s, 4),
         "ttft_ms": round(ttft_timer.elapsed_ms, 2),
         "tpot_ms": round(tpot_ms, 2),
@@ -365,6 +446,12 @@ def speculative_decode_sample(
         "output_text": output_text,
         "verify_log": verify_log,
     }
+
+    if return_timing_breakdown:
+        result["draft_elapsed_s"] = round(draft_elapsed_s_total, 6)
+        result["verify_elapsed_s"] = round(verify_elapsed_s_total, 6)
+
+    return result
 
 
 def _save_verify_logs(results: list[dict], log_path: Path) -> None:
@@ -466,3 +553,139 @@ def run_stability_analysis(
         all_results.append({"seed": seed, "results": results})
 
     return all_results
+
+
+def run_dual_3b_subset(
+    data: dict[str, list[dict]],
+    regime_name: str,
+    k: int = 4,
+    max_samples: int = 200,
+    target_device: str = "cuda:0",
+    draft_device: str = "cuda:1",
+    draft_model_id: str = TARGET_MODEL_ID,
+    draft_label: str = "3B_dual",
+    seed: int = SEED,
+    target_model=None,
+    target_tokenizer=None,
+    draft_model=None,
+    draft_tokenizer=None,
+    show_realtime_progress: bool = True,
+) -> list[dict]:
+    """
+    Run speculative decoding on the first-N samples with 3B target/draft pinned
+    to two explicit devices, and save CSV in the standard speculative format.
+    """
+    regime = REGIMES[regime_name]
+    regime_short = "det" if regime_name == "deterministic" else "stoch"
+
+    if target_model is None or target_tokenizer is None:
+        target_model, target_tokenizer = load_model_on_device(
+            TARGET_MODEL_ID,
+            target_device,
+            TARGET_QUANT,
+        )
+    if draft_model is None or draft_tokenizer is None:
+        draft_model, draft_tokenizer = load_model_on_device(
+            draft_model_id,
+            draft_device,
+            DRAFT_QUANT,
+        )
+
+    subset = _first_n_samples_by_task(data, max_samples=max_samples)
+    total = sum(len(v) for v in subset.values())
+    if total == 0:
+        raise ValueError("No samples available for dual-3B subset run")
+
+    results = []
+    done = 0
+    draft_elapsed_total = 0.0
+    verify_elapsed_total = 0.0
+
+    draft_bar = None
+    target_bar = None
+    if show_realtime_progress:
+        draft_bar = tqdm(
+            total=total,
+            desc=f"draft {draft_label} {draft_device}",
+            position=0,
+            leave=True,
+            dynamic_ncols=True,
+            mininterval=0.2,
+            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+        )
+        target_bar = tqdm(
+            total=total,
+            desc=f"target verify {target_device}",
+            position=1,
+            leave=True,
+            dynamic_ncols=True,
+            mininterval=0.2,
+            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+        )
+
+    for task_name, samples in subset.items():
+        max_new_tokens = DATASETS[task_name]["max_new_tokens"]
+        for sample in samples:
+            done += 1
+            set_seed(seed)
+
+            out = speculative_decode_sample(
+                target_model,
+                draft_model,
+                target_tokenizer,
+                sample["prompt"],
+                max_new_tokens,
+                k,
+                regime.temperature,
+                regime.top_p,
+                return_timing_breakdown=show_realtime_progress,
+            )
+
+            if show_realtime_progress:
+                draft_elapsed_total += float(out.get("draft_elapsed_s", 0.0))
+                verify_elapsed_total += float(out.get("verify_elapsed_s", 0.0))
+
+                draft_avg = draft_elapsed_total / done if done else 0.0
+                verify_avg = verify_elapsed_total / done if done else 0.0
+                remaining = max(total - done, 0)
+                draft_eta_min = (draft_avg * remaining) / 60.0
+                verify_eta_min = (verify_avg * remaining) / 60.0
+
+                draft_bar.update(1)
+                draft_bar.set_postfix_str(
+                    f"task={task_name} {done}/{total} | avg={draft_avg:.2f}s | eta={draft_eta_min:.1f}m"
+                )
+
+                target_bar.update(1)
+                target_bar.set_postfix_str(
+                    f"task={task_name} {done}/{total} | avg={verify_avg:.2f}s | eta={verify_eta_min:.1f}m"
+                )
+
+            row = {
+                "sample_id": sample["sample_id"],
+                "task": task_name,
+                "draft": draft_label,
+                "k": k,
+                "regime": regime_name,
+                "seed": seed,
+                **out,
+            }
+            results.append(row)
+
+            if not show_realtime_progress and (done % 25 == 0 or done == total):
+                print(f"  [spec {draft_label} k={k} {regime_short}] {done}/{total}")
+
+    if draft_bar is not None:
+        draft_bar.close()
+    if target_bar is not None:
+        target_bar.close()
+
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    csv_path = RESULTS_DIR / f"spec_{draft_label}_k{k}_{regime_short}.csv"
+    csv_rows = [{key: val for key, val in r.items() if key != "verify_log"} for r in results]
+    write_csv(csv_path, csv_rows)
+    log_path = VERIFY_LOG_DIR / f"spec_{draft_label}_k{k}_{regime_short}_seed{seed}.json"
+    _save_verify_logs(results, log_path)
+    print(f"  Saved -> {csv_path}")
+    print(f"  Verify logs -> {log_path}")
+    return results
