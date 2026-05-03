@@ -114,6 +114,13 @@ QUANT_MODE = "int8"  # was "fp8" — switched because optimum-quanto+torchao cra
 TARGET_QUANT: str | None = "fp16"   # 3B target 
 DRAFT_QUANT: str | None = "fp16"    # 0.5B draft — full precision, no dequant tax
 
+# ── GPU Decode Optimization ───────────────────────────────────────────────────
+# Applied in src/speculative.py. All switches are safe defaults for eager mode.
+GPU_USE_SEPARATE_STREAMS = True
+GPU_PREALLOCATE_STEP_BUFFERS = True
+GPU_USE_STABLE_STEP_SHAPES = True
+GPU_TRY_CUDA_GRAPHS = False  # Experimental: auto-falls back to eager when unsupported.
+
 # ── DriftDiffuse (Phase 7/8) ──────────────────────────────────────────────────
 DRIFTER_CHECKPOINT_DIR = RESULTS_DIR / "drifter_ckpt"
 DRIFTER_CONFIG = {

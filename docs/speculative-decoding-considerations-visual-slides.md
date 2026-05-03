@@ -9,7 +9,7 @@ title: Speculative Decoding - Visual Analysis
 # Speculative Decoding
 ## Visual diagnosis of wall time and speed-up limits
 
-- Data source: `results/all_configs_summary.csv` and `results/pivot_time_breakdown_debug_quickrun.csv`
+- Data source: `results/all_configs_summary.csv`, `results/pivot_time_breakdown_debug_quickrun.csv`, and compact ablation outputs
 - Focus: `alpha`, `B_eff`, `k`, and stage-wise bottlenecks
 
 ---
@@ -87,11 +87,48 @@ $$
 
 ---
 
-# Next Step
+# Compact Ablation: What Dominates?
 
-Run compact ablation over:
-- `k` (proposal length)
-- output length (`max_new_tokens`)
-- prompt length bucket (short/medium/long)
+![w:980](../figures/ablation_dominance_scores.png)
 
-Goal: quantify which factor contributes most to wall time and speed-up variance.
+- `speedup`: most affected by `k` (dominance ~0.381).
+- `spec_latency_s`: dominated by output length (dominance ~0.796).
+- `prompt_bucket`: very small effect in this setup (all metrics near zero dominance).
+
+---
+
+# Ablation Heatmap: Speed-up
+
+![w:980](../figures/ablation_speedup_heatmap.png)
+
+- Best region appears at lower `k` with shorter outputs.
+- Increasing `k` consistently lowers speed-up in this compact FP16 run.
+
+---
+
+# Ablation Heatmap: Spec Latency
+
+![w:980](../figures/ablation_latency_heatmap.png)
+
+- Output length drives wall time much more than `k`.
+- At large outputs, latency grows strongly across all `k`.
+
+---
+
+# Prompt Length Effect (Short vs Medium vs Long)
+
+![w:1150](../figures/ablation_prompt_bucket_effects.png)
+
+- Prompt bucket impact is secondary compared with `k` and output length.
+- In this dataset, bucket changes are visible but not dominant.
+
+---
+
+# Updated Takeaway (with Ablation)
+
+- For FP16 target + FP16 draft, low speed-up is not mainly a precision issue.
+- Dominant factors from this ablation:
+  1. `k` controls speed-up behavior.
+  2. output length controls wall time.
+  3. prompt length has minor contribution (in this compact setup).
+- Practical choice: keep `k` moderate and benchmark at representative output lengths.

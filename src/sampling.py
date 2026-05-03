@@ -43,9 +43,37 @@ def probs_from_logits(logits: torch.Tensor, gen_kwargs: dict) -> torch.Tensor:
 
 def sample_next_token(logits: torch.Tensor, gen_kwargs: dict) -> tuple[torch.Tensor, torch.Tensor]:
     """Sample or select the next token under the shared sampling policy."""
-    probs = probs_from_logits(logits, gen_kwargs)
-    if gen_kwargs.get("do_sample", False):
-        next_token = torch.multinomial(probs, 1)
-    else:
-        next_token = probs.argmax(dim=-1, keepdim=True)
+    next_token, _, probs = sample_next_token_and_prob(
+        logits,
+        gen_kwargs,
+        return_probs=True,
+    )
     return next_token, probs
+
+
+def sample_next_token_and_prob(
+    logits: torch.Tensor,
+    gen_kwargs: dict,
+    return_probs: bool = False,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
+    """
+    Fused sampling helper that returns the sampled token and its probability.
+
+    When ``return_probs=False`` this avoids materializing the full probability
+    tensor in deterministic mode and saves memory traffic in tight decode loops.
+    """
+    if not gen_kwargs.get("do_sample", False):
+        next_token = logits.argmax(dim=-1, keepdim=True)
+        token_prob = torch.ones_like(next_token, dtype=torch.float32)
+        probs = None
+        if return_probs:
+            probs = torch.zeros_like(logits, dtype=torch.float32)
+            probs.scatter_(1, next_token, 1.0)
+        return next_token, token_prob, probs
+
+    probs = probs_from_logits(logits, gen_kwargs)
+    next_token = torch.multinomial(probs, 1)
+    token_prob = probs.gather(1, next_token)
+    if not return_probs:
+        probs = None
+    return next_token, token_prob, probs

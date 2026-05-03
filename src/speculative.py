@@ -25,9 +25,11 @@ from config import (
     TARGET_MODEL_ID, DRAFT_MODELS, DATASETS, REGIMES,
     DRAFT_LENGTHS, RESULTS_DIR, STABILITY_DIR, SEED, STABILITY_SEEDS,
     QUANT_MODE, DRAFT_QUANT, TARGET_QUANT,
+    GPU_USE_SEPARATE_STREAMS, GPU_PREALLOCATE_STEP_BUFFERS,
+    GPU_USE_STABLE_STEP_SHAPES, GPU_TRY_CUDA_GRAPHS,
 )
 from quantization import get_quant_kwargs
-from sampling import probs_from_logits, sample_next_token
+from sampling import probs_from_logits, sample_next_token_and_prob
 from hf_utils import apply_hf_mode_env, hf_model_kwargs
 from utils import set_seed, GPUTimer, write_csv
 
@@ -184,9 +186,12 @@ def _draft_generate(
             if keep_step_logits:
                 q_step_logits.append(logits.squeeze(0).detach())
 
-            next_token, probs = sample_next_token(logits, gen_kwargs)
-            q_prob = probs.gather(1, next_token).squeeze(1)
-            q_token_probs.append(float(q_prob.item()))
+            next_token, token_prob, _ = sample_next_token_and_prob(
+                logits,
+                gen_kwargs,
+                return_probs=False,
+            )
+            q_token_probs.append(float(token_prob.item()) if keep_step_logits else 1.0)
             proposed_tokens.append(next_token)
 
             if step < k - 1:
@@ -300,6 +305,13 @@ def speculative_decode_sample(
 
     target_device = input_ids.device
     draft_device = next(draft_model.parameters()).device
+    same_cuda_device = (
+        torch.cuda.is_available()
+        and target_device.type == "cuda"
+        and draft_device.type == "cuda"
+        and target_device.index == draft_device.index
+    )
+    stream_pipeline_enabled = bool(GPU_USE_SEPARATE_STREAMS and same_cuda_device)
 
     eos_id = tokenizer.eos_token_id
     keep_step_logits = bool(gen_kwargs.get("do_sample", False))
@@ -308,6 +320,32 @@ def speculative_decode_sample(
     draft_past = None
     target_pending_input = input_ids
     draft_pending_input = input_ids if draft_device == target_device else input_ids.to(draft_device)
+
+    one_token_target_buffer = torch.empty((1, 1), device=target_device, dtype=input_ids.dtype)
+    one_token_draft_buffer = (
+        one_token_target_buffer
+        if draft_device == target_device
+        else torch.empty((1, 1), device=draft_device, dtype=input_ids.dtype)
+    )
+
+    step_input_buffer = None
+    draft_to_target_buffer = None
+    if GPU_PREALLOCATE_STEP_BUFFERS:
+        step_input_buffer = torch.empty((1, k + 1), device=target_device, dtype=input_ids.dtype)
+        if draft_device != target_device:
+            draft_to_target_buffer = torch.empty((1, k), device=target_device, dtype=input_ids.dtype)
+
+    stable_step_shapes = bool(GPU_USE_STABLE_STEP_SHAPES and step_input_buffer is not None)
+    graph_capture_note = "disabled"
+    if GPU_TRY_CUDA_GRAPHS:
+        # Dynamic KV-cache mutation is not graph-safe in this code path yet.
+        graph_capture_note = "unsupported_dynamic_kv"
+
+    draft_stream = None
+    verify_stream = None
+    if stream_pipeline_enabled:
+        draft_stream = torch.cuda.Stream(device=target_device)
+        verify_stream = torch.cuda.Stream(device=target_device)
 
     accepted_tokens: list[int] = []
     total_proposed = 0
@@ -318,7 +356,8 @@ def speculative_decode_sample(
     draft_elapsed_s_total = 0.0
     verify_elapsed_s_total = 0.0
 
-    ttft_timer = GPUTimer()
+    ttft_start = time.perf_counter()
+    ttft_elapsed_ms = 0.0
     full_timer = GPUTimer()
 
     with full_timer:
@@ -330,51 +369,108 @@ def speculative_decode_sample(
 
             # ---- Draft phase ----
             draft_started_at = time.perf_counter()
-            draft_tokens, q_token_probs, q_step_logits, draft_past = _draft_generate(
-                draft_model,
-                draft_pending_input,
-                draft_past,
-                effective_k,
-                gen_kwargs,
-                keep_step_logits,
-            )
+            if draft_stream is not None:
+                draft_stream.wait_stream(torch.cuda.current_stream(device=target_device))
+                with torch.cuda.stream(draft_stream):
+                    draft_tokens, q_token_probs, q_step_logits, draft_past = _draft_generate(
+                        draft_model,
+                        draft_pending_input,
+                        draft_past,
+                        effective_k,
+                        gen_kwargs,
+                        keep_step_logits,
+                    )
+                    draft_ready_event = torch.cuda.Event(blocking=False)
+                    draft_ready_event.record(draft_stream)
+            else:
+                draft_tokens, q_token_probs, q_step_logits, draft_past = _draft_generate(
+                    draft_model,
+                    draft_pending_input,
+                    draft_past,
+                    effective_k,
+                    gen_kwargs,
+                    keep_step_logits,
+                )
+                draft_ready_event = None
             draft_elapsed_s_total += time.perf_counter() - draft_started_at
 
             # ---- Verify phase ----
             if draft_device != target_device:
-                draft_tokens_t = draft_tokens.to(target_device, non_blocking=True)
+                if draft_to_target_buffer is not None:
+                    draft_tokens_t = draft_to_target_buffer[:, :effective_k]
+                    draft_tokens_t.copy_(draft_tokens[:, :effective_k], non_blocking=True)
+                else:
+                    draft_tokens_t = draft_tokens.to(target_device, non_blocking=True)
             else:
                 draft_tokens_t = draft_tokens
 
-            target_input = torch.cat([target_pending_input, draft_tokens_t], dim=-1)
+            if stream_pipeline_enabled and draft_ready_event is not None:
+                verify_stream.wait_event(draft_ready_event)
 
-            if n_verify_steps == 0:
-                ttft_timer.__enter__()
+            use_buffered_step = (
+                step_input_buffer is not None
+                and target_pending_input.shape[1] == 1
+                and target_past is not None
+            )
+            fixed_shape_step = bool(use_buffered_step and stable_step_shapes)
+            if use_buffered_step:
+                step_input_buffer[:, :1].copy_(target_pending_input)
+                step_input_buffer[:, 1:effective_k + 1].copy_(draft_tokens_t[:, :effective_k])
+                if fixed_shape_step and effective_k < k:
+                    pad_id = int(eos_id) if eos_id is not None else int(target_pending_input[0, 0].item())
+                    step_input_buffer[:, effective_k + 1:k + 1].fill_(pad_id)
+                    target_input = step_input_buffer
+                    verify_window = k + 1
+                else:
+                    target_input = step_input_buffer[:, :effective_k + 1]
+                    verify_window = effective_k + 1
+            else:
+                target_input = torch.cat([target_pending_input, draft_tokens_t], dim=-1)
+                verify_window = effective_k + 1
 
             verify_started_at = time.perf_counter()
-            with torch.inference_mode():
-                target_outputs = target_model(
-                    target_input,
-                    past_key_values=target_past,
-                    use_cache=True,
+            if verify_stream is not None:
+                with torch.cuda.stream(verify_stream):
+                    with torch.inference_mode():
+                        target_outputs = target_model(
+                            target_input,
+                            past_key_values=target_past,
+                            use_cache=True,
+                        )
+                    target_past = target_outputs.past_key_values
+                    verify_logits = target_outputs.logits[0, -verify_window:, :]
+                    if fixed_shape_step and effective_k < k:
+                        verify_logits = verify_logits[:effective_k + 1, :]
+                    emitted, n_acc = _verify_block(
+                        verify_logits,
+                        draft_tokens.squeeze(0).tolist(),
+                        q_token_probs,
+                        q_step_logits,
+                        gen_kwargs,
+                    )
+                torch.cuda.current_stream(device=target_device).wait_stream(verify_stream)
+            else:
+                with torch.inference_mode():
+                    target_outputs = target_model(
+                        target_input,
+                        past_key_values=target_past,
+                        use_cache=True,
+                    )
+                target_past = target_outputs.past_key_values
+                verify_logits = target_outputs.logits[0, -verify_window:, :]
+                if fixed_shape_step and effective_k < k:
+                    verify_logits = verify_logits[:effective_k + 1, :]
+                emitted, n_acc = _verify_block(
+                    verify_logits,
+                    draft_tokens.squeeze(0).tolist(),
+                    q_token_probs,
+                    q_step_logits,
+                    gen_kwargs,
                 )
             verify_elapsed_s_total += time.perf_counter() - verify_started_at
-            target_past = target_outputs.past_key_values
-
-            # Last (k+1) logits = predictions for the next k+1 positions
-            # (p_1 conditioned on prefix; p_{k+1} = bonus).
-            verify_logits = target_outputs.logits[0, -(effective_k + 1):, :]
-
-            emitted, n_acc = _verify_block(
-                verify_logits,
-                draft_tokens.squeeze(0).tolist(),
-                q_token_probs,
-                q_step_logits,
-                gen_kwargs,
-            )
 
             if n_verify_steps == 0:
-                ttft_timer.__exit__(None, None, None)
+                ttft_elapsed_ms = (time.perf_counter() - ttft_start) * 1000.0
 
             total_proposed += effective_k
             total_accepted += n_acc
@@ -405,13 +501,12 @@ def speculative_decode_sample(
                 accepted_tokens = accepted_tokens[:max_new_tokens]
                 break
 
-            target_pending_input = torch.tensor(
-                [[int(emitted)]], device=target_device, dtype=input_ids.dtype,
-            )
+            one_token_target_buffer.fill_(int(emitted))
+            target_pending_input = one_token_target_buffer
             draft_pending_input = (
                 target_pending_input
                 if draft_device == target_device
-                else target_pending_input.to(draft_device, non_blocking=True)
+                else one_token_draft_buffer.copy_(target_pending_input, non_blocking=True)
             )
 
             # ---- EOS handling ----
@@ -426,14 +521,14 @@ def speculative_decode_sample(
     n_new = len(accepted_tokens)
     output_text = tokenizer.decode(accepted_tokens, skip_special_tokens=True)
 
-    tpot_ms = ((full_timer.elapsed_ms - ttft_timer.elapsed_ms) / max(n_new - 1, 1)) if n_new > 1 else 0.0
+    tpot_ms = ((full_timer.elapsed_ms - ttft_elapsed_ms) / max(n_new - 1, 1)) if n_new > 1 else 0.0
     tokens_per_sec = n_new / full_timer.elapsed_s if full_timer.elapsed_s > 0 else 0.0
     alpha = total_accepted / total_proposed if total_proposed > 0 else 0.0
     b_eff = total_accepted / n_verify_steps if n_verify_steps > 0 else 0.0
 
     result = {
         "latency_s": round(full_timer.elapsed_s, 4),
-        "ttft_ms": round(ttft_timer.elapsed_ms, 2),
+        "ttft_ms": round(ttft_elapsed_ms, 2),
         "tpot_ms": round(tpot_ms, 2),
         "num_tokens": n_new,
         "tokens_per_sec": round(tokens_per_sec, 2),
@@ -445,6 +540,9 @@ def speculative_decode_sample(
         "stopped_eos": stopped_eos,
         "output_text": output_text,
         "verify_log": verify_log,
+        "gpu_stream_pipeline": stream_pipeline_enabled,
+        "gpu_stable_step_shapes": stable_step_shapes,
+        "gpu_graph_capture": graph_capture_note,
     }
 
     if return_timing_breakdown:
