@@ -1,0 +1,5 @@
+baseline_condition,compare_condition,metric,mean_delta_compare_minus_base,ci95_low,ci95_high,ci_excludes_zero,n_pairs,bootstrap_samples
+gpu_opt_off,gpu_opt_on,draft_elapsed_s,0.023866499999999985,0.006848397916666645,0.04235705000000003,True,12,20000
+gpu_opt_off,gpu_opt_on,verify_elapsed_s,0.010595583333333346,0.0034955604166666725,0.019329631250000007,True,12,20000
+gpu_opt_off,gpu_opt_on,latency_s,0.03545833333333335,0.011016458333333395,0.06269187500000001,True,12,20000
+gpu_opt_off,gpu_opt_on,ttft_ms,5.763333333333331,1.994145833333329,12.266041666666643,True,12,20000

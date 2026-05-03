@@ -1,0 +1,2 @@
+baseline_condition,compare_condition,n_pairs,n_output_mismatch,output_match_rate_pct,alpha_match_rate_pct,beff_match_rate_pct,example_mismatch_sample_ids
+gpu_opt_off,gpu_opt_on,12,0,100.0,100.0,100.0,
