@@ -1,144 +1,59 @@
-\section{DriftDiffuse: Parallel Diffusion Drafter}
+\section{DriftDiffuse Extension (Prospective)}
 \label{sec:driftdiffuse}
 
-The breakdown in Section~\ref{sec:results} shows that, once per-block
-overhead is amortised at $k{\geq}8$, the linear-in-$k$ autoregressive
-drafting cost ($T_{\text{draft}}{=}k\cdot t_{\text{step}}$) becomes the
-binding term in the speculative-decoding latency
-$L = (T_{\text{draft}} + T_{\text{verify}})/\tau$. We propose
-\emph{DriftDiffuse}, a
-small bidirectional masked-diffusion drafter that produces all $k$ draft
-tokens in $n_{\text{denoise}}{\ll}k$ parallel steps, breaking the
-linear-in-$k$ relationship while preserving compatibility with the
-Leviathan verifier.
+The current empirical study identifies a practical optimum at moderate block
+size ($k{=}8$). Beyond this point, accepted block length continues to increase,
+but speedup declines, indicating that additional drafting cost and verification
+work are no longer offset by acceptance gains. This motivates a targeted
+extension: replacing autoregressive drafting with a parallel drafter that can
+propose a full block in fewer sequential steps.
 
-\subsection{Architecture}
-\label{sec:driftdiffuse-arch}
+\subsection{Design objective}
 
-Figure~\ref{fig:drift-arch} shows the drafter. The model is a self-contained
-$\sim$30\,M-parameter bidirectional transformer (hidden 512, 6 layers, 8
-heads) with three input streams:
-\begin{itemize}\itemsep0pt
-  \item \textbf{Context.} The last $L_{\text{ctx}}$ accepted tokens from
-        the target prefix, embedded with the standard token-embedding table.
-  \item \textbf{Block.} The $k$ proposal positions. Revealed positions use
-        their token embedding; masked positions use a learned
-        \texttt{MASK\_EMB} sentinel (Qwen2.5 has no native \texttt{[MASK]}
-        token; routing the sentinel via a boolean \texttt{mask\_flags}
-        tensor avoids reserving a vocabulary slot).
-  \item \textbf{Time.} A per-position diffusion step $t_i \in [0, T]$
-        embedded into a time vector and added \emph{only} to masked
-        positions.
-\end{itemize}
-Attention is fully bidirectional (no causal mask) so a single forward pass
-yields logits for all $k$ block positions simultaneously. The output head
-ties to the token embedding and produces logits over the target vocabulary
-(\textit{V}$=152{,}064$), so the verifier consumes the drafter logits
-directly without re-projection.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{figures/driftdiffuse_architecture.png}
-\caption{DriftDiffuser drafter: a small bidirectional transformer with a
-learned \texttt{MASK\_EMB} sentinel and per-position time embedding. One
-forward pass yields logits for all $k$ block positions in parallel.}
-\label{fig:drift-arch}
-\end{figure}
-
-\subsection{Drift schedule and iterative unmasking}
-
-The novelty of DriftDiffuse lies in its noise schedule. Standard masked
-diffusion samples a single $t$ per example. We instead use a
-\emph{position-conditional} schedule
+Let speculative-cycle latency be
 \begin{equation}
-  t_i \;=\; \mathrm{clip}\!\left( t \,+\, \lambda \cdot \frac{i}{k_{\max}},\; 0,\; T\right),
-  \label{eq:drift}
+  L = \frac{T_{\text{draft}} + T_{\text{verify}}}{\tau},
 \end{equation}
-so that later block positions stay masked longer than earlier ones
-(``drift'' offset). This distils the geometric $\alpha^i$ acceptance
-asymmetry of speculative decoding directly into the noise process: the
-drafter is trained to produce confident predictions at early positions
-(which the verifier accepts almost always) while leaving later positions
-unconfident (which the verifier rejects more often anyway), avoiding
-wasted capacity on positions that will be re-sampled.
+where $\tau$ is expected accepted tokens per cycle. In autoregressive drafting,
+$T_{\text{draft}}$ scales approximately linearly with $k$. A diffusion-style
+parallel drafter aims to reduce this term by generating block tokens through a
+small fixed number of denoising steps, making draft latency less sensitive to
+$k$.
 
-At inference time the block starts fully masked and is filled in
-$n_{\text{denoise}}$ confidence-weighted steps (MaskGIT-style): the
-top-confidence positions are frozen each step and the rest are re-predicted.
-With an early-exit threshold $\tau{=}0.95$ on softmax confidence, we
-typically need $n_{\text{denoise}}{=}3$ steps for $k{=}8$ and
-$n_{\text{denoise}}{=}3$--$5$ for $k{=}16$, independent of $k$.
+\subsection{Proposed approach}
 
-\subsection{Acceptance modes}
+We propose DriftDiffuse as a lightweight bidirectional masked-diffusion
+drafter compatible with standard target-side verification. The intended
+pipeline is:
+\begin{enumerate}
+  \item initialize a length-$k$ masked block conditioned on the accepted prefix,
+  \item iteratively denoise in a small number of parallel refinement steps,
+  \item submit the resulting draft block to the existing verifier,
+  \item apply the same acceptance/rejection logic used in the current protocol.
+\end{enumerate}
 
-Figure~\ref{fig:drift-pipe} summarises the full pipeline. We support two
-acceptance strategies that share the same parallel drafter:
-\begin{itemize}\itemsep0pt
-  \item \textbf{Block mode.} A single Bernoulli draw on
-        $\prod_i p(x_i)/q(x_i)$ over the common vocabulary accepts or
-        rejects the entire $k$-block. On rejection we fall back to
-        token-level rejection sampling, which is provably unbiased with
-        respect to the target distribution.
-  \item \textbf{Token mode.} Standard Leviathan-style per-token rejection
-        sampling. The pseudo-likelihood $q(x_i\,|\,x_{<i}, \text{ctx})$
-        required by Leviathan's modified rejection is computed by a single
-        batched drifter forward of size $k$: row $i$ reveals positions
-        $[0..i)$ and we read the $i$-th column. This costs one extra
-        drifter forward per block, still independent of $k$.
+This design preserves verifier compatibility and allows direct comparison with
+the autoregressive draft baseline under the same data manifests, prompts,
+metrics, and hardware.
+
+\subsection{Evaluation plan}
+
+The extension will be evaluated as a strict incremental study rather than a new
+protocol. We will retain:
+\begin{itemize}
+  \item the same target model and task manifests,
+  \item the same deterministic and stochastic regimes,
+  \item the same reporting metrics ($S$, $\alpha$, $B_{\text{eff}}$, quality deltas),
+  \item the same artifact schema for per-configuration CSV outputs.
 \end{itemize}
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{figures/driftdiffuse_pipeline.png}
-\caption{End-to-end DriftDiffuse pipeline. The drafter proposes $k$ tokens
-in $n_{\text{denoise}}$ parallel steps; the target verifies in one forward
-pass; block- or token-mode acceptance feeds the residual back into the
-drift schedule for the next block.}
-\label{fig:drift-pipe}
-\end{figure}
+Primary comparison points are the current best autoregressive settings
+($k{=}8$ deterministic) and high-$k$ settings ($k{=}16$) where the present
+pipeline shows diminishing returns.
 
-\subsection{Experimental setup}
+\subsection{Status}
 
-\paragraph{Drafter checkpoint.}
-We distil the drafter from the cached baseline outputs in
-\texttt{results/baseline\_*.csv}: each baseline window
-$(c_{<L_{\text{ctx}}}, x_{0:k})$ is a supervised target. The model is
-trained with cross-entropy on the masked positions only, AdamW
-($\text{lr}{=}3{\times}10^{-4}$, weight decay $0.01$), \texttt{bfloat16}
-autocast, and gradient clipping at $1.0$. The smoke configuration uses
-$\textit{max\_steps}{=}2{,}000$ ($\sim$10--20 minutes on an RTX 5090);
-paper-quality runs use $\textit{n\_epochs}{=}3$ with no step cap.
-
-\paragraph{Validation metrics.}
-Independently of the speculative loop, we report on a held-out 5\% slice
-of the distillation data: (i) per-position top-1 accuracy
-$\text{acc}_i = \Pr(\arg\max q(x_i)\,{=}\,\hat{x}_i)$, which serves as an
-$\alpha$-proxy; (ii) the full-block match rate
-$\Pr(\forall i\in[0,k): \arg\max q(x_i)\,{=}\,\hat{x}_i)$, which lower-bounds
-the block-mode acceptance probability.
-
-\paragraph{Eval grid.}
-We sweep $k\in\{8, 16\}$, $n_{\text{denoise}}\in\{3\}$, accept mode
-$\in\{\text{block},\text{token}\}$, and the same two regimes
-(deterministic, stochastic) used for the AR sweep. Output CSVs at
-\texttt{results/drift\_drift\_n3\_\{block,token\}\_k\{8,16\}\_\{det,stoch\}.csv}
-share the AR \texttt{spec\_*.csv} schema verbatim, so the metrics,
-evaluation, and visualisation pipelines plug in unchanged.
-
-\paragraph{Hardware and software.}
-Identical to the AR experiments (\S\ref{sec:results}): NVIDIA RTX~5090,
-Qwen2.5-7B-Instruct in \texttt{int8} (\texttt{bitsandbytes} 0.44+),
-DriftDiffuser in \texttt{fp16}, single-stream serving with
-\texttt{torch.inference\_mode}, fixed seeds $\{42, 123, 999\}$.
-
-\paragraph{Hypothesis under test.}
-Per-block draft latency falls from $T_{\text{draft}}{=}k\cdot
-t_{\text{step}}^{\text{AR}}$ to
-$T_{\text{drift}}{=}n_{\text{denoise}}\cdot t_{\text{step}}^{\text{drift}}$,
-which is independent of $k$. With $n_{\text{denoise}}{=}3$,
-$t_{\text{step}}^{\text{drift}}\!\approx\!2{\times}t_{\text{step}}^{\text{AR}}$
-(deeper but still small drafter), and the AR draft at $k{=}8$ as the
-reference, we expect the break-even point to drop from
-$\bar{B}_{\text{eff}}{>}3.0$ to $\bar{B}_{\text{eff}}{>}1.75$, opening
-the door to $S{>}2\times$ at higher $k$ provided the drafter sustains
-$\bar{\alpha}\geq 0.40$.
+At the time of writing, DriftDiffuse is a planned extension and is not included
+in the quantitative results of Section~\ref{sec:results}. We include it here to
+make the research trajectory explicit and to separate completed evidence from
+forward-looking engineering work.

@@ -1,50 +1,51 @@
 \section{Implementation and Reproducibility}
 \label{sec:impl}
 
-\subsection{Code organisation}
-The pipeline is organised under \texttt{src/} as
-\texttt{config.py} (model IDs, prompts, paths), \texttt{data\_loader.py}
-(deterministic subsampling under a fixed seed), \texttt{baseline.py}
-(target-only autoregressive loop), \texttt{speculative.py} (vanilla
-draft--verify loop following Leviathan
-\emph{et al.}~\cite{Leviathan2023}), \texttt{drift\_speculative.py}
-(DriftDiffuse drafter; Section~\ref{sec:driftdiffuse}),
-\texttt{metrics.py}, \texttt{evaluate.py}, and \texttt{visualize.py}.
-All measurement helpers (CUDA event-based latency, TTFT/TPOT decomposition,
-seed initialisation, CSV logging) are isolated in \texttt{utils.py}.
+\paragraph{Code organisation.}
+The experiment pipeline is implemented under the project source directory with
+modular components for configuration, data loading, autoregressive baselines,
+speculative decoding, metric aggregation, and runtime orchestration.
+The notebook driver executes these modules in fixed phase order and writes
+artifacts to the results directory.
 
-\subsection{Models and quantisation}
-The target is Qwen2.5-7B-Instruct~\cite{Qwen2025} loaded in 8-bit via
-\texttt{bitsandbytes}~\cite{Dettmers2022Int8} with
-\texttt{device\_map="auto"}. Drafts are Qwen2.5-0.5B and Qwen2.5-1.5B
-in \texttt{fp16}. We use Hugging Face Transformers'
-\texttt{generate(assistant\_model=...)} interface for vanilla speculative
-decoding~\cite{HuggingFaceAssistant} to ensure that our acceptance numbers
-are reproducible from the same library version reported in
-\texttt{env\_spec.txt}.
+\paragraph{Model loading and precision.}
+In the current configuration, target and draft models are loaded in FP16 for
+the main sweep, with quantisation controls retained in configuration for
+alternative runs. Tokenizer and generation limits are held constant across
+baselines and speculative runs to preserve paired comparability.
 
-\subsection{Sample manifests and seeds}
-For each dataset we draw a fixed sample-ID manifest with \texttt{seed=42}
-and persist it to \texttt{manifests/\{gsm8k,mmlu,xsum\}.json}; every
-configuration is evaluated on exactly the same prompt set. For deterministic
-runs we set \texttt{do\_sample=False}, \texttt{temperature=0},
-\texttt{top\_p=1.0}; for stochastic runs we use \texttt{temperature=0.7},
-\texttt{top\_p=0.9}. The two best configurations are re-run with seeds
-$\{42,123,999\}$ to obtain the speedup standard deviation $\sigma_S$
-reported in Section~\ref{sec:results}.
+\paragraph{Baselines.}
+We run one autoregressive baseline per regime (deterministic and stochastic)
+with the same manifests and output-length constraints as speculative runs.
+Each baseline artifact stores per-sample latency, output length, and task
+predictions.
 
-\subsection{Measurement protocol}
-Latency is measured with \texttt{torch.cuda.Event} pairs around the
-\texttt{generate} call, with one warmup sample per configuration to absorb
-CUDA graph compilation. Per-sample we record
-\texttt{sample\_id, task, latency, ttft, tpot, n\_tokens, output\_text}
-plus the speculative-only fields
-\texttt{n\_draft\_calls, n\_target\_calls, n\_accepted, n\_proposed},
-from which $\bar{\alpha}$ and $\bar{B}_{\text{eff}}$ are derived directly
-without distributional assumptions.
+\paragraph{Speculative decoding implementation.}
+The speculative loop follows standard token-level draft--verify logic.
+At each cycle, the draft proposes up to $k$ tokens autoregressively; the
+target verifies the proposal in one pass over the extended prefix; the accepted
+prefix is committed up to the first mismatch; and one correction token is added
+from the target distribution when needed. This procedure preserves target-level
+generation semantics while exposing acceptance statistics needed for analysis.
 
-\subsection{Artefact release}
-The complete code, manifests, raw \texttt{results/*.csv}, and the
-DriftDiffuse training notebook are released under the Assignment~2
-repository. The exact CUDA toolkit, driver, Python, and library versions
-are pinned in \texttt{env\_spec.txt} alongside this manuscript.
+\paragraph{Regimes and outputs.}
+The same verification core is used for deterministic and stochastic modes,
+with only sampling policy changed by regime parameters.
+Each configuration writes a dedicated CSV artifact with per-sample runtime,
+token counts, and quality-relevant outputs.
+
+\paragraph{Aggregation and summary artifact.}
+The metrics module merges paired records by sample identifier and computes
+speedup $S$, acceptance $\alpha$, effective accepted block size
+$B_{\text{eff}}$, latency, throughput, and task-level quality deltas.
+The main reporting table used in this paper is the consolidated summary CSV
+(\texttt{all\_configs\_summary.csv}).
+
+\paragraph{Reproducibility controls and caveat.}
+Runs are executed serially on one GPU, with fixed manifests and fixed decode
+limits. We preserve raw per-configuration artifacts and derived summaries.
+Because some baseline files were rerun after initial summary generation,
+absolute baseline totals and summary-implied baselines may differ across
+artifact sets; this paper therefore treats configuration ranking and paired
+summary metrics as primary evidence, and reports this mismatch explicitly as a
+threat to strict replay equivalence.

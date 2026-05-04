@@ -1,5 +1,4 @@
 \backcite {Leviathan2023,Chen2023specsampling}{{1}{1}{section.1}}
-\backcite {Chang2022MaskGIT}{{2}{3}{Item.3}}
 \backcite {Leviathan2023}{{2}{2}{section*.1}}
 \backcite {Chen2023specsampling}{{2}{2}{section*.1}}
 \backcite {Stern2018blockwise}{{2}{2}{equation.1}}
@@ -9,11 +8,6 @@
 \backcite {Sandler2025SpecDiff2}{{2}{2}{section*.3}}
 \backcite {An2025PARD}{{2}{2}{section*.3}}
 \backcite {Chen2026dflash}{{2}{2}{section*.3}}
-\backcite {Dettmers2022Int8}{{2}{2}{section*.4}}
 \backcite {Cobbe2021}{{2}{1}{Item.5}}
 \backcite {Hendrycks2020}{{2}{2}{Item.6}}
 \backcite {Narayan2018}{{2}{3}{Item.7}}
-\backcite {Leviathan2023}{{3}{5.1}{subsection.5.1}}
-\backcite {Qwen2025}{{3}{5.2}{subsection.5.2}}
-\backcite {Dettmers2022Int8}{{3}{5.2}{subsection.5.2}}
-\backcite {HuggingFaceAssistant}{{3}{5.2}{subsection.5.2}}

@@ -44,13 +44,11 @@ hidden features, reporting up to $5\times$ end-to-end speedup over
 autoregressive baselines on H200/B200 hardware.
 
 \paragraph{Position of this work.}
-Our study is the first, to our knowledge, to combine two contributions in
-the same protocol: (i) a controlled empirical evaluation of vanilla
-speculative decoding on consumer-class hardware (RTX 5090,
-Qwen2.5-7B-Instruct quantised to 8-bit via
-\texttt{bitsandbytes}~\cite{Dettmers2022Int8}); and (ii) DriftDiffuse, a
-small ($\sim$30\,M parameters) bidirectional masked-diffusion drafter that
-operates within the consumer-hardware budget while breaking the
-linear-in-$k$ drafting cost. We do not compete with DFlash's H200-class
-numbers; we instead establish the operating regime in which a parallel
-drafter remains useful when the AR draft is already well-tuned.
+This work focuses on a controlled consumer-GPU evaluation of vanilla
+speculative decoding with same-family model pairing (Qwen2.5-3B target,
+0.5B/1.5B drafts) under deterministic and stochastic regimes. Rather than
+competing with data-center throughput claims, we characterise practical
+operating points on a single RTX~5090, including acceptance dynamics,
+quality drift, and runtime-sensitive configuration choices. We then use these
+results to motivate a future parallel-drafter extension (DriftDiffuse) aimed
+at reducing linear-in-$k$ drafting cost under the same hardware budget.

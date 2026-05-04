@@ -1,26 +1,20 @@
 \section{Introduction}
 
-Autoregressive decoding in large language models (LLMs) is fundamentally
-sequential: each output token requires a full forward pass through the
-target model, capping single-stream throughput at the per-token kernel
-latency. For 7\,B-class models served on a single consumer GPU, this is the
-dominant cost in latency-sensitive applications such as code completion,
-on-device assistants, and interactive chat. \emph{Speculative decoding}
-addresses this bottleneck by interposing a small \emph{draft} model that
-proposes $k$ candidate tokens, which the target then verifies in parallel
-with a single forward pass; rejected tokens are re-sampled from the
-target's residual distribution to preserve the output
+Autoregressive decoding in large language models (LLMs) is inherently
+sequential: each generated token requires a full forward pass of the target
+model. This constraint directly limits single-stream throughput in interactive
+inference settings. Speculative decoding mitigates this bottleneck by adding a
+smaller draft model that proposes a length-$k$ token block, followed by one
+target-side verification step; modified rejection sampling preserves the target
 distribution~\cite{Leviathan2023,Chen2023specsampling}.
 
-The headline numbers for speculative decoding ($S\!\in\![2\times,5\times]$)
-are typically reported on data-center GPUs (A100, H100, H200) using
-unquantised drafters. On consumer hardware with quantised models the
-picture is murkier: per-block bookkeeping overhead, dequantisation cost,
-and asymmetric draft/target throughput can erase the algorithmic gain
-entirely. Practitioners deploying speculative decoding on a single RTX
-4090- or 5090-class GPU therefore lack quantitative guidance on which
-$(\text{draft size}, k, \text{regime})$ to pick, and at what point the
-linear-in-$k$ drafting cost itself becomes the bottleneck.
+Although speculative decoding is now well studied, deployment guidance remains
+uncertain for consumer-GPU settings. Reported gains in the literature are often
+obtained on data-center hardware and are sensitive to model pairing, proposal
+length, and sampling regime. For practitioners operating on a single RTX-class
+GPU, the key questions are practical: which draft size is worthwhile, which
+$k$ is optimal, and whether deterministic versus stochastic decoding changes
+the speed--quality frontier.
 
 \subsection{Research questions}
 \label{sec:rqs}
@@ -29,7 +23,7 @@ We address three research questions:
 \begin{enumerate}\itemsep0pt
   \item[\textbf{RQ1.}] How much end-to-end speedup does vanilla
         speculative decoding deliver against autoregressive decoding on a
-        single RTX~5090 with an \texttt{int8} 7\,B target?
+        single RTX~5090 with a 3\,B target?
   \item[\textbf{RQ2.}] How do draft model size and draft length jointly
         determine token acceptance and net latency?
   \item[\textbf{RQ3.}] How sensitive is the speed--quality trade-off to
@@ -42,31 +36,26 @@ We address three research questions:
 
 This paper makes the following contributions:
 \begin{enumerate}\itemsep0pt
-  \item A reproducible empirical protocol with frozen sample manifests on
-        three benchmarks (GSM8K, MMLU subsets, CNN/DailyMail) and a
-        14-configuration grid (Qwen2.5-7B target; 0.5B/1.5B drafts;
-        $k\!\in\!\{4,8,16\}$; deterministic and stochastic regimes).
-  \item Wall-clock and acceptance results showing a best speedup of
-        $S{=}1.65\times$ at $k{=}8$ deterministic, and an empirical
-        $\bar{B}_{\text{eff}}$ that tracks the geometric upper bound
-        within $3\%$, identifying the linear-in-$k$ draft cost as the
-        binding term once per-block overhead is amortised.
-  \item \emph{DriftDiffuse}: a $\sim$30\,M-parameter bidirectional
-        masked-diffusion drafter with a position-conditional drift
-        schedule and MaskGIT-style iterative
-        unmasking~\cite{Chang2022MaskGIT}, supporting both block-level
-        and Leviathan-style token-level acceptance and producing $k$
-        draft tokens in $n_{\text{denoise}}{\ll}k$ parallel steps.
-  \item A break-even analysis that explains why parallel drafters become
-        attractive at $k{\geq}8$ on consumer hardware, together with the
-        complete training and evaluation pipeline distilled from the
-        target's own outputs.
+  \item A reproducible consumer-GPU protocol with frozen sample manifests,
+        matched prompts, and two decoding regimes across GSM8K, MMLU subset,
+        and CNN/DailyMail.
+  \item A complete 12-configuration speculative grid (two draft sizes,
+        $k\in\{4,8,16\}$, deterministic/stochastic) with regime-matched
+        baselines and per-configuration reporting of latency, throughput,
+        acceptance, and quality deltas.
+  \item Empirical evidence of a non-monotonic $k$ effect, with best observed
+        performance at 1.5B, $k{=}8$, deterministic ($S{=}1.7289$), and
+        consistent deterministic advantage over stochastic decoding for all
+        draft--$k$ pairs.
+  \item A practical operating recommendation and a transparent statement of
+        current reproducibility limitations (artifact consistency across reruns),
+        together with a targeted extension plan.
 \end{enumerate}
 
 The rest of the paper is organised as follows. Section~\ref{sec:related}
 reviews related work. Section~\ref{sec:protocol} defines the experimental
-protocol; Section~\ref{sec:metrics} the metrics. Section~\ref{sec:impl}
-covers implementation. Section~\ref{sec:results} presents the autoregressive
-results, and Section~\ref{sec:driftdiffuse} introduces DriftDiffuse.
-Section~\ref{sec:discussion} discusses systems implications, and
-Section~\ref{sec:conclusion} concludes.
+protocol; Section~\ref{sec:metrics} defines metrics. Section~\ref{sec:impl}
+describes implementation and reproducibility controls. Section~\ref{sec:results}
+reports the main empirical findings. Section~\ref{sec:driftdiffuse} outlines
+our planned extension beyond autoregressive drafting. Section~\ref{sec:discussion}
+discusses implications, limitations, and conclusion.

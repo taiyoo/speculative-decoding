@@ -1,4 +1,4 @@
-\section{Experimental protocol}
+\section{Experimental Protocol}
 \label{sec:protocol}
 
 \subsection{Datasets and sample sizes}
@@ -17,13 +17,14 @@ We evaluate on three benchmarks spanning reasoning, knowledge, and summarization
 We use the following fixed prompt templates for each task:
 
 \smallskip\noindent\textbf{GSM8K:}
-\begin{quote}\small\ttfamily
-You are a careful math assistant. Solve the problem step by step and end with Final Answer: <number>.\\
+\begin{quote}\small
+You are a careful math assistant. Solve the problem step by step and end with
+Final Answer: \textless number\textgreater.\\
 Question: \{question\}
 \end{quote}
 
 \noindent\textbf{MMLU:}
-\begin{quote}\small\ttfamily
+\begin{quote}\small
 You are a knowledgeable assistant. Choose exactly one option.\\
 Question: \{question\}\\
 Options: A.~\{A\} B.~\{B\} C.~\{C\} D.~\{D\}\\
@@ -31,38 +32,61 @@ Answer:
 \end{quote}
 
 \noindent\textbf{CNN/DailyMail:}
-\begin{quote}\small\ttfamily
+\begin{quote}\small
 Summarize the following article in 3--4 sentences, preserving key facts and entities.\\
 Article: \{article\}\\
 Summary:
 \end{quote}
-
-\subsection{Model setup}
-
+\paragraph{Objective and hypotheses.}
+The study quantifies practical speculative-decoding gains on consumer hardware
+under fixed data and prompt controls.
+We test four hypotheses:
 \begin{itemize}
-    \item \textbf{Target model:} Qwen/Qwen2.5-7B-Instruct (7B).
-    \item \textbf{AR draft models} (same family as target):
-    \begin{enumerate}
-        \item[(a)] Qwen/Qwen2.5-0.5B-Instruct (0.5B; fast draft; lower expected acceptance).
-        \item[(b)] Qwen/Qwen2.5-1.5B-Instruct (1.5B; balanced draft; expected best trade-off).
-    \end{enumerate}
-    \item \textbf{Tokenizer rule:} Target and draft must use the same tokenizer family.
-    \item \textbf{Baseline:} Target-only autoregressive decoding.
+    \item \textbf{H1:} Same-family speculative decoding yields positive net speedup
+        ($S>1$) over autoregressive decoding.
+    \item \textbf{H2:} Increasing draft length from $k{=}4$ to $k{=}8$ improves
+        speedup, while $k{=}16$ may reduce gains due to additional drafting
+        and verification overhead.
+    \item \textbf{H3:} A larger draft (1.5B) achieves higher acceptance and higher
+        net speed than a smaller draft (0.5B).
+    \item \textbf{H4:} Deterministic decoding is more runtime-efficient and quality
+        stable than stochastic decoding for the same draft and $k$.
 \end{itemize}
 
-\subsection{Decoding regimes}
+\paragraph{Hardware and software controls.}
+All experiments run on one NVIDIA RTX~5090 (32GB VRAM) with a fixed software
+stack (PyTorch, Transformers, and tokenizer settings pinned by the project
+environment). We use the same runtime entry points and prompt templates for
+all configurations, and execute runs serially to avoid cross-run contention.
 
+\paragraph{Model pairing.}
+Target model: Qwen2.5-3B-Instruct.
+Draft models: Qwen2.5-0.5B-Instruct and Qwen2.5-1.5B-Instruct.
+All models are same-family to minimise tokenizer mismatch and style drift.
+
+\paragraph{Task suite and manifests.}
+We evaluate on fixed manifests reused across all runs:
 \begin{itemize}
-    \item \textbf{Deterministic regime:} temperature $= 0.0$, top\_p $= 1.0$.
-    \item \textbf{Stochastic regime:} temperature $= 0.7$, top\_p $= 0.9$.
-    \item \textbf{Draft lengths:} $k \in \{4, 8, 16\}$.
-    \item \textbf{Max new tokens:} GSM8K: 256; MMLU: 32; CNN/DailyMail: 160.
+    \item GSM8K arithmetic QA (300 samples),
+    \item MMLU subset with 5 subjects (500 samples),
+    \item CNN/DailyMail summarisation (200 samples).
 \end{itemize}
+Each configuration therefore processes 1{,}000 prompts.
 
-\subsection{Controlled variables}
+\paragraph{Decoding regimes and grid.}
+Two regimes are evaluated:
+\begin{itemize}
+    \item \textbf{Deterministic:} greedy decoding.
+    \item \textbf{Stochastic:} temperature/top-$p$ sampling.
+\end{itemize}
+For each draft model, we sweep $k\in\{4,8,16\}$, producing
+12 speculative configurations. We also run one autoregressive baseline per
+regime for anchored latency and throughput reporting.
 
-\begin{enumerate}
-    \item Identical prompts and sample order across all runs.
-    \item Identical hardware and software environment.
-    \item Fixed seeds for determinism and robustness checks.
-\end{enumerate}
+\paragraph{Endpoints.}
+The primary endpoint is paired wall-clock speedup
+$S = L_{\text{AR}}/L_{\text{spec}}$ as reported by the experiment summary
+artifact for each draft--$k$--regime combination.
+Secondary endpoints include acceptance rate $\alpha$, effective accepted block
+size $B_{\text{eff}}$, mean per-sample latency, throughput (tokens/s), and
+task-level quality deltas.
