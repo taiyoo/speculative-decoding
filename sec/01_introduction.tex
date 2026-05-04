@@ -43,10 +43,13 @@ This paper makes the following contributions:
         $k\in\{4,8,16\}$, deterministic/stochastic) with regime-matched
         baselines and per-configuration reporting of latency, throughput,
         acceptance, and quality deltas.
-  \item Empirical evidence of a non-monotonic $k$ effect, with best observed
+  \item Empirical evidence of a non-monotonic $k$ effect, with highest observed
         performance at 1.5B, $k{=}8$, deterministic ($S{=}1.7289$), and
-        consistent deterministic advantage over stochastic decoding for all
-        draft--$k$ pairs.
+        higher deterministic mean speedup than stochastic decoding across all
+        matched draft--$k$ pairs in the current run family.
+  \item A statistical reporting protocol for camera-ready evaluation: paired
+        bootstrap confidence intervals, one-sided significance tests for
+        $S{>}1$, and corrected pairwise comparisons for winner selection.
   \item A practical operating recommendation and a transparent statement of
         current reproducibility limitations (artifact consistency across reruns),
         together with a targeted extension plan.

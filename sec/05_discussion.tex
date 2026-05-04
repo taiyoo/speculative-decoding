@@ -3,7 +3,7 @@
 
 \subsection{Main empirical takeaways}
 
-Three findings are robust in the current sweep. First, speculative decoding
+Three findings are consistent in the current run family. First, speculative decoding
 provides consistent acceleration across all tested configurations
 ($S>1$ throughout). Second, speedup is non-monotonic in draft length, with a
 clear optimum at $k{=}8$ rather than at the largest tested block. Third,
@@ -33,6 +33,8 @@ configurations, among which 1.5B, $k{=}8$, deterministic remains best.
 This supports a practical policy: use deterministic mode with $k{=}8$ for
 production-like latency targets, and treat stochastic settings as
 quality-sensitive configurations requiring additional calibration.
+Final winner claims should be interpreted together with paired confidence
+intervals and corrected pairwise tests from a coherent artifact family.
 
 \section{Threats to validity}
 \label{sec:threats}
@@ -72,4 +74,5 @@ hardware budget: prefer deterministic speculative decoding at $k{=}8$, using
 1.5B draft when feasible and 0.5B as a strong alternative. Future work will
 extend this baseline with a parallel-drafter variant (Section~\ref{sec:driftdiffuse})
 under the same manifests and metrics to test whether high-$k$ regimes can be
-improved without sacrificing quality control.
+improved without sacrificing quality control. DriftDiffuse remains prospective
+in the present manuscript and is not part of the quantitative results section.

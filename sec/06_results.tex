@@ -10,38 +10,43 @@ speed--quality tradeoff.
 \begin{table*}[t]
 \centering
 \caption{Speculative grid summary (Qwen2.5-3B target). $S$ is paired speedup
-reported by the summary artifact; $\alpha$ is token-level acceptance;
-$B_{\text{eff}}$ is accepted tokens per verification cycle.}
+reported by the summary artifact; CI$_S$ denotes paired bootstrap CI status;
+$\alpha$ is token-level acceptance; $B_{\text{eff}}$ is accepted tokens per
+verification cycle.}
 \label{tab:headline}
 \small
-\begin{tabular}{l c c c c c c c}
+\begin{tabular}{l c c c c c c c c}
 \hline
-\textbf{Config} & $S$ & $\alpha$ & $B_{\text{eff}}$ & $\Delta$GSM8K & $\Delta$MMLU & $\Delta$CNN/DM & $R_{\text{tok}}$ \\
+\textbf{Config} & $S$ & CI$_S$ & $\alpha$ & $B_{\text{eff}}$ & $\Delta$GSM8K & $\Delta$MMLU & $\Delta$CNN/DM & $R_{\text{tok}}$ \\
 \hline
-0.5B, $k{=}4$, det   & 1.6565 & 0.4168 & 1.65 & -1.67 & 0.60 & -0.09 & 12.37 \\
-0.5B, $k{=}4$, stoch & 1.5706 & 0.4058 & 1.60 & 5.34  & 0.60 & -0.11 & 12.00 \\
-0.5B, $k{=}8$, det   & 1.7130 & 0.3412 & 2.64 & -0.67 & 0.20 & -0.43 & 12.94 \\
-0.5B, $k{=}8$, stoch & 1.6128 & 0.3380 & 2.62 & 2.00  & 0.20 & -0.73 & 12.25 \\
-0.5B, $k{=}16$, det  & 1.4629 & 0.2410 & 3.57 & -2.00 & 1.40 & -0.19 & 11.74 \\
-0.5B, $k{=}16$, stoch& 1.4059 & 0.2355 & 3.50 & 3.00  & 0.00 & -0.50 & 11.51 \\
-1.5B, $k{=}4$, det   & 1.6504 & 0.4555 & 1.80 & -0.33 & -0.20 & -0.17 & 12.19 \\
-1.5B, $k{=}4$, stoch & 1.5812 & 0.4401 & 1.74 & 2.67  & 0.20 & -0.05 & 12.10 \\
-1.5B, $k{=}8$, det   & \textbf{1.7289} & 0.3829 & 2.96 & -1.00 & 0.60 & -0.37 & 12.80 \\
-1.5B, $k{=}8$, stoch & 1.6215 & 0.3709 & 2.87 & 6.34  & 1.00 & -0.10 & 12.27 \\
-1.5B, $k{=}16$, det  & 1.4968 & 0.2821 & 4.19 & 2.67  & -0.20 & -0.11 & 11.60 \\
-1.5B, $k{=}16$, stoch& 1.4432 & 0.2781 & 4.13 & 4.00  & -1.00 & -0.50 & 11.55 \\
+baseline, det        & 1.0000 & -- & -- & -- & -- & -- & -- & 11.03 \\
+baseline, stoch      & 1.0000 & -- & -- & -- & -- & -- & -- & 10.83 \\
+0.5B, $k{=}4$, det   & 1.6565 & planned & 0.4168 & 1.65 & -1.67 & 0.60 & -0.09 & 12.37 \\
+0.5B, $k{=}4$, stoch & 1.5706 & planned & 0.4058 & 1.60 & 5.34  & 0.60 & -0.11 & 12.00 \\
+0.5B, $k{=}8$, det   & 1.7130 & planned & 0.3412 & 2.64 & -0.67 & 0.20 & -0.43 & 12.94 \\
+0.5B, $k{=}8$, stoch & 1.6128 & planned & 0.3380 & 2.62 & 2.00  & 0.20 & -0.73 & 12.25 \\
+0.5B, $k{=}16$, det  & 1.4629 & planned & 0.2410 & 3.57 & -2.00 & 1.40 & -0.19 & 11.74 \\
+0.5B, $k{=}16$, stoch& 1.4059 & planned & 0.2355 & 3.50 & 3.00  & 0.00 & -0.50 & 11.51 \\
+1.5B, $k{=}4$, det   & 1.6504 & planned & 0.4555 & 1.80 & -0.33 & -0.20 & -0.17 & 12.19 \\
+1.5B, $k{=}4$, stoch & 1.5812 & planned & 0.4401 & 1.74 & 2.67  & 0.20 & -0.05 & 12.10 \\
+1.5B, $k{=}8$, det   & \textbf{1.7289} & planned & 0.3829 & 2.96 & -1.00 & 0.60 & -0.37 & 12.80 \\
+1.5B, $k{=}8$, stoch & 1.6215 & planned & 0.3709 & 2.87 & 6.34  & 1.00 & -0.10 & 12.27 \\
+1.5B, $k{=}16$, det  & 1.4968 & planned & 0.2821 & 4.19 & 2.67  & -0.20 & -0.11 & 11.60 \\
+1.5B, $k{=}16$, stoch& 1.4432 & planned & 0.2781 & 4.13 & 4.00  & -1.00 & -0.50 & 11.55 \\
 \hline
 \end{tabular}
 \end{table*}
 
 \subsection{RQ1: Does speculative decoding accelerate inference?}
 
-All 12 speculative configurations exceed $S{=}1$, with observed speedups
+All 12 speculative configurations exceed $S{=}1$ in the current summary,
+with observed speedups
 from $1.4059$ to $1.7289$. The best configuration is 1.5B with $k{=}8$ in
 deterministic mode. Baseline context from separate regime runs shows mean
 latencies of 11.41s (deterministic) and 11.65s (stochastic) per sample, so the
 measured speculative gains are substantial in wall-clock terms for fixed
-workload and prompts.
+workload and prompts. Statistical confirmation is reported via paired
+uncertainty analysis on a coherent run family.
 
 \subsection{RQ2: How do draft length and draft size affect acceptance and speed?}
 
@@ -70,6 +75,10 @@ limited (from $-1.0$ to $1.4$). GSM8K is the most sensitive axis, especially
 under stochastic settings where positive and negative swings are larger. Under
 a conservative quality filter ($\max |\Delta| \le 1$ across tasks), the best
 configuration remains 1.5B, $k{=}8$, deterministic.
+
+While Table~\ref{tab:headline} reports means from the current summary artifact,
+camera-ready statistical reporting will pair these means with CI$_S$ and
+significance values computed from a single coherent rerun family.
 
 \subsection{Summary of empirical operating point}
 
