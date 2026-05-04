@@ -236,7 +236,7 @@ def ensure_df_all(ns: dict):
 def ensure_drifter(
     ns: dict,
     checkpoint_path=None,
-    train_if_missing: bool = False,
+    train_if_missing: bool = True,
     train_overrides: dict | None = None,
 ):
     """
