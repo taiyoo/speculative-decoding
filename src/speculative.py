@@ -37,6 +37,24 @@ from utils import set_seed, GPUTimer, write_csv
 VERIFY_LOG_DIR = RESULTS_DIR / "verify_logs"
 
 
+def _supports_advanced_cuda_path(model) -> bool:
+    """Return whether custom CUDA stream + fixed-shape path is likely safe."""
+    model_type = str(getattr(getattr(model, "config", None), "model_type", "")).lower()
+    if model_type in {"qwen2", "qwen2_moe"}:
+        return False
+
+    # Quantized wrappers/kernels are often bound to the default stream.
+    for attr in ("is_loaded_in_8bit", "is_loaded_in_4bit"):
+        if bool(getattr(model, attr, False)):
+            return False
+
+    quant_method = getattr(model, "quantization_method", None)
+    if quant_method is not None and str(quant_method).lower() not in {"none", ""}:
+        return False
+
+    return True
+
+
 def _get_quant_kwargs():
     kwargs, _ = get_quant_kwargs(DRAFT_QUANT)
     return kwargs
@@ -336,6 +354,18 @@ def speculative_decode_sample(
             draft_to_target_buffer = torch.empty((1, k), device=target_device, dtype=input_ids.dtype)
 
     stable_step_shapes = bool(GPU_USE_STABLE_STEP_SHAPES and step_input_buffer is not None)
+
+    # Guardrail: some model/kernel stacks (notably Qwen2 and quantized loads)
+    # can throw `CUDA error: invalid argument` on non-default stream or fixed
+    # verification shapes. Fall back to the robust eager path automatically.
+    advanced_cuda_path_enabled = (
+        _supports_advanced_cuda_path(target_model)
+        and _supports_advanced_cuda_path(draft_model)
+    )
+    if not advanced_cuda_path_enabled:
+        stream_pipeline_enabled = False
+        stable_step_shapes = False
+
     graph_capture_note = "disabled"
     if GPU_TRY_CUDA_GRAPHS:
         # Dynamic KV-cache mutation is not graph-safe in this code path yet.

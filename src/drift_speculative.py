@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Callable
 
 import torch
 import torch.nn.functional as F
@@ -103,6 +104,7 @@ def _block_accept_log_ratio(
     return float((p_x.log() - q_x.log()).sum().item())
 
 
+@torch.inference_mode()
 def drift_decode_sample(
     target_model,
     drifter: DriftDiffuser,
@@ -366,28 +368,60 @@ def run_drift_grid(
     accept_mode: str = "block",
     seed: int = SEED,
     label: str = "drift",
+    progress_callback: Callable[[dict], None] | None = None,
 ) -> list[dict]:
     """Run the full eval suite for one (k, regime, n_denoise) config."""
     regime = REGIMES[regime_name]
     regime_short = "det" if regime_name == "deterministic" else "stoch"
     results = []
+    total_samples = sum(len(v) for v in data.values())
+    done_samples = 0
+
+    # Enforce eval mode in case caller left modules in train mode.
+    target_model.eval()
+    drifter.eval()
 
     for task_name, samples in data.items():
         max_new = DATASETS[task_name]["max_new_tokens"]
         for sample in samples:
             set_seed(seed)
-            out = drift_decode_sample(
-                target_model,
-                drifter,
-                target_tokenizer,
-                sample["prompt"],
-                max_new,
-                k,
-                regime.temperature,
-                regime.top_p,
-                n_denoise_steps=n_denoise_steps,
-                accept_mode=accept_mode,
-            )
+            try:
+                out = drift_decode_sample(
+                    target_model,
+                    drifter,
+                    target_tokenizer,
+                    sample["prompt"],
+                    max_new,
+                    k,
+                    regime.temperature,
+                    regime.top_p,
+                    n_denoise_steps=n_denoise_steps,
+                    accept_mode=accept_mode,
+                )
+            except torch.OutOfMemoryError:
+                # One retry after cache cleanup helps recover from fragmentation.
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                try:
+                    out = drift_decode_sample(
+                        target_model,
+                        drifter,
+                        target_tokenizer,
+                        sample["prompt"],
+                        max_new,
+                        k,
+                        regime.temperature,
+                        regime.top_p,
+                        n_denoise_steps=n_denoise_steps,
+                        accept_mode=accept_mode,
+                    )
+                except torch.OutOfMemoryError as retry_oom:
+                    sample_id = sample.get("sample_id", "unknown")
+                    raise RuntimeError(
+                        f"CUDA OOM in drift grid (task={task_name}, sample_id={sample_id}, k={k}, "
+                        f"n_denoise_steps={n_denoise_steps}, regime={regime_name}). "
+                        "Retry failed after torch.cuda.empty_cache()."
+                    ) from retry_oom
             results.append({
                 "sample_id": sample["sample_id"],
                 "task": task_name,
@@ -399,6 +433,14 @@ def run_drift_grid(
                 "accept_mode": accept_mode,
                 **{key: val for key, val in out.items() if key != "verify_log"},
             })
+            done_samples += 1
+            if progress_callback is not None:
+                progress_callback({
+                    "done": done_samples,
+                    "total": total_samples,
+                    "task": task_name,
+                    "sample_id": sample.get("sample_id"),
+                })
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     csv_path = RESULTS_DIR / f"drift_{label}_n{n_denoise_steps}_{accept_mode}_k{k}_{regime_short}.csv"
