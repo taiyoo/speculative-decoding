@@ -39,8 +39,8 @@ Total experiment configurations:
 ## Environment
 
 Validated environment (see `env_spec.txt`):
-- Python 3.14.2
-- torch 2.11.0
+- Python 3.12
+- torch 2.11.0+cu128
 - Apple MPS backend (`cuda_available: False`)
 
 Dependencies are pinned in `requirements.txt`.
