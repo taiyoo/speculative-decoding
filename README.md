@@ -39,12 +39,16 @@ Total experiment configurations:
 ## Environment
 
 Validated environment (see `env_spec.txt`):
-- Python 3.12
-- torch 2.11.0+cu128
-- torchvision 0.26.0+cu128
-- Apple MPS backend (`cuda_available: False`)
+  GPU version (tested environment):
+  - RTX5090 Laptop (Windows 11) / RTX4090 (Windows 10)
+  - Python 3.12
+  - torch 2.11.0+cu128
+  - torchvision 0.26.0+cu128
 
-Dependencies are pinned in `requirements.txt`.
+  No GPU version:
+  - Apple MPS backend (`cuda_available: False`)
+
+  Dependencies are pinned in `requirements.txt`.
 
 ## Quick Start
 
