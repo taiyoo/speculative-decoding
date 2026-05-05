@@ -47,6 +47,8 @@ Validated environment (see `env_spec.txt`):
 
   No GPU version:
   - Apple MPS backend (`cuda_available: False`)
+  - Python 3.14
+  - torch 2.11.0
 
   Dependencies are pinned in `requirements.txt`.
 
