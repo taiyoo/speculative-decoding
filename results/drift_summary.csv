@@ -1,0 +1,5 @@
+config,draft,k,regime,n_denoise,accept_mode,alpha,B_eff,tokens_per_sec,speedup,quality_gsm8k,quality_mmlu,quality_cnndm
+DriftDiffuse-n2-block,DriftDiffuse,8,deterministic,2,block,2141.8522,16838.3,66.95,0.0,0.0,25.8,2.73
+DriftDiffuse-n3-block,DriftDiffuse,8,deterministic,3,block,2131.3053,16757.84,56.79,0.0,0.0,25.8,2.74
+DriftDiffuse-n2-block,DriftDiffuse,16,deterministic,2,block,1340.3763,20509.66,142.53,0.0,0.0,25.8,1.81
+DriftDiffuse-n3-block,DriftDiffuse,16,deterministic,3,block,1338.8079,20484.08,98.5,0.0,0.0,25.8,1.8

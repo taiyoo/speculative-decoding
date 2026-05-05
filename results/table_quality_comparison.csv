@@ -1,0 +1,4 @@
+task,baseline_regime,baseline_score,best_spec_config,best_spec_score,delta_spec_minus_base
+gsm8k,deterministic,59.0,1.5B_k16_deterministic,69.67,10.67
+mmlu,deterministic,56.6,0.5B_k16_deterministic,58.4,1.8
+cnndm,deterministic,20.9,0.5B_k4_deterministic,21.45,0.55
