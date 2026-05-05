@@ -327,7 +327,8 @@ def _token_accept_fallback(
             target_tok = int(p_row.argmax(dim=-1).item())
             if target_tok == d_tok:
                 continue
-            return target_tok, i
+            # Return order is (n_acc, emitted).
+            return i, target_tok
 
         common_vocab = min(p_row.shape[-1], q_probs.shape[-1])
         p_tok = float(p_row[0, min(d_tok, common_vocab - 1)].item())
@@ -346,7 +347,8 @@ def _token_accept_fallback(
         else:
             corrected = residual / residual.sum(dim=-1, keepdim=True)
         emitted = int(torch.multinomial(corrected, 1).item())
-        return emitted, i
+        # Return order is (n_acc, emitted).
+        return i, emitted
 
     bonus_logits = verify_logits[k].unsqueeze(0)
     if sample_mode:
@@ -354,7 +356,8 @@ def _token_accept_fallback(
         emitted = int(torch.multinomial(bonus_probs, 1).item())
     else:
         emitted = int(bonus_logits.argmax(dim=-1).item())
-    return emitted, k
+    # Full block accepted -> n_acc=k, then emit bonus token.
+    return k, emitted
 
 
 def run_drift_grid(
