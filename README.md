@@ -11,7 +11,7 @@ This project implements and evaluates:
 - Task-level quality and system-level latency metrics
 
 Target model and drafts:
-- Target: `Qwen/Qwen2.5-7B-Instruct`
+- Target: `Qwen/Qwen2.5-3B-Instruct`
 - Draft A: `Qwen/Qwen2.5-0.5B-Instruct`
 - Draft B: `Qwen/Qwen2.5-1.5B-Instruct`
 
