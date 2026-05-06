@@ -117,8 +117,10 @@ def acsd_decode_sample(
     rescue_trigger_alpha: float = 0.18,
     rescue_trigger_consecutive: int = 3,
     rescue_hold_steps: int = 6,
+    rescue_cooldown_steps: int = 8,
     ar_fallback_alpha: float = 0.12,
     ar_fallback_min_tokens: int = 48,
+    ar_fallback_consecutive: int = 3,
 ) -> dict:
     """Run ACSD for one sample."""
     if primary_label not in draft_models or rescue_label not in draft_models:
@@ -154,6 +156,8 @@ def acsd_decode_sample(
     recent = deque(maxlen=max(1, int(accept_window)))
     low_alpha_consecutive = 0
     rescue_remaining = 0
+    rescue_cooldown_remaining = 0
+    fallback_low_consecutive = 0
     used_ar_fallback = False
     used_rescue_steps = 0
     k_usage = {int(k): 0 for k in k_choices}
@@ -169,16 +173,24 @@ def acsd_decode_sample(
             if remaining <= 0:
                 break
 
-            r_alpha = _rolling_alpha(recent)
-            k_now = min(_select_k(r_alpha, k_choices, k_low_threshold, k_high_threshold, base_k), remaining)
+            if recent:
+                r_alpha = _rolling_alpha(recent)
+                k_now = min(_select_k(r_alpha, k_choices, k_low_threshold, k_high_threshold, base_k), remaining)
+            else:
+                # Avoid a cold-start jump to high-k before we observe acceptance.
+                k_now = min(int(base_k), remaining)
             k_usage[int(k_now)] = k_usage.get(int(k_now), 0) + 1
 
             # Rescue state machine.
             if rescue_remaining > 0:
                 active_label = rescue_label
                 rescue_remaining -= 1
+                if rescue_remaining == 0:
+                    rescue_cooldown_remaining = max(0, int(rescue_cooldown_steps))
             else:
                 active_label = primary_label
+                if rescue_cooldown_remaining > 0:
+                    rescue_cooldown_remaining -= 1
 
             if active_label != last_active_label:
                 # Invalidate cache for newly active draft; rebuild from prefix.
@@ -253,15 +265,21 @@ def acsd_decode_sample(
 
             if active_label == rescue_label:
                 used_rescue_steps += 1
-
-            if step_alpha < rescue_trigger_alpha:
-                low_alpha_consecutive += 1
             else:
-                low_alpha_consecutive = 0
+                # Trigger rescue only while on primary draft, and require cooldown
+                # between rescue episodes to prevent oscillation.
+                if step_alpha < rescue_trigger_alpha:
+                    low_alpha_consecutive += 1
+                else:
+                    low_alpha_consecutive = 0
 
-            if low_alpha_consecutive >= rescue_trigger_consecutive and rescue_remaining == 0:
-                rescue_remaining = max(1, int(rescue_hold_steps))
-                low_alpha_consecutive = 0
+                if (
+                    low_alpha_consecutive >= rescue_trigger_consecutive
+                    and rescue_remaining == 0
+                    and rescue_cooldown_remaining == 0
+                ):
+                    rescue_remaining = max(1, int(rescue_hold_steps))
+                    low_alpha_consecutive = 0
 
             keep_len = n_input + len(accepted_tokens) + n_acc
             target_past = _crop_cache(target_past, keep_len)
@@ -290,8 +308,15 @@ def acsd_decode_sample(
             # finish with plain AR to avoid runaway latency tails.
             if len(accepted_tokens) >= int(ar_fallback_min_tokens):
                 if _rolling_alpha(recent) < ar_fallback_alpha:
+                    fallback_low_consecutive += 1
+                else:
+                    fallback_low_consecutive = 0
+
+                if fallback_low_consecutive >= max(1, int(ar_fallback_consecutive)):
                     used_ar_fallback = True
                     break
+            else:
+                fallback_low_consecutive = 0
 
         if used_ar_fallback and len(accepted_tokens) < max_new_tokens:
             accepted_tokens, target_past, target_pending_input, stopped_eos = _continue_with_target_ar(
@@ -351,6 +376,7 @@ def run_acsd_grid(
     k_choices: tuple[int, ...] = (4, 8, 16),
     seed: int = SEED,
     label: str = "acsd",
+    checkpoint_every: int | None = 50,
     progress_callback=None,
     **acsd_kwargs,
 ) -> list[dict]:
@@ -370,60 +396,73 @@ def run_acsd_grid(
     results = []
     verify_logs: dict[str, list[dict]] = {}
 
-    for task_name, samples in data.items():
-        max_new = DATASETS[task_name]["max_new_tokens"]
-        for sample in samples:
-            set_seed(seed)
-            out = acsd_decode_sample(
-                target_model=target_model,
-                draft_models=draft_models,
-                tokenizer=target_tokenizer,
-                prompt=sample["prompt"],
-                max_new_tokens=max_new,
-                temperature=regime.temperature,
-                top_p=regime.top_p,
-                primary_label=primary_label,
-                rescue_label=rescue_label,
-                base_k=base_k,
-                k_choices=k_choices,
-                **acsd_kwargs,
-            )
-
-            row = {
-                "sample_id": sample["sample_id"],
-                "task": task_name,
-                "draft": label,
-                "k": base_k,
-                "regime": regime_name,
-                "seed": seed,
-                "primary_draft": primary_label,
-                "rescue_draft": rescue_label,
-                **{k: v for k, v in out.items() if k != "verify_log"},
-            }
-            results.append(row)
-            verify_logs[sample["sample_id"]] = out.get("verify_log", [])
-
-            done += 1
-            if progress_callback is not None:
-                progress_callback(
-                    {
-                        "done": done,
-                        "total": total_samples,
-                        "task": task_name,
-                        "sample_id": sample.get("sample_id"),
-                    }
-                )
-            elif done % 50 == 0 or done == total_samples:
-                print(f"  [acsd {regime_short}] {done}/{total_samples}")
-
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     csv_path = RESULTS_DIR / f"{label}_{primary_label}_to_{rescue_label}_{regime_short}.csv"
-    write_csv(csv_path, results)
 
     log_path = VERIFY_LOG_DIR / f"{label}_{primary_label}_to_{rescue_label}_{regime_short}_seed{seed}.json"
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(log_path, "w") as f:
-        json.dump(verify_logs, f)
 
-    print(f"Saved -> {csv_path}")
+    def _flush_checkpoint(partial: bool):
+        write_csv(csv_path, results)
+        with open(log_path, "w") as f:
+            json.dump(verify_logs, f)
+        if partial:
+            print(f"Checkpoint -> {csv_path} ({len(results)}/{total_samples})")
+
+    try:
+        for task_name, samples in data.items():
+            max_new = DATASETS[task_name]["max_new_tokens"]
+            for sample in samples:
+                set_seed(seed)
+                out = acsd_decode_sample(
+                    target_model=target_model,
+                    draft_models=draft_models,
+                    tokenizer=target_tokenizer,
+                    prompt=sample["prompt"],
+                    max_new_tokens=max_new,
+                    temperature=regime.temperature,
+                    top_p=regime.top_p,
+                    primary_label=primary_label,
+                    rescue_label=rescue_label,
+                    base_k=base_k,
+                    k_choices=k_choices,
+                    **acsd_kwargs,
+                )
+
+                row = {
+                    "sample_id": sample["sample_id"],
+                    "task": task_name,
+                    "draft": label,
+                    "k": base_k,
+                    "regime": regime_name,
+                    "seed": seed,
+                    "primary_draft": primary_label,
+                    "rescue_draft": rescue_label,
+                    **{k: v for k, v in out.items() if k != "verify_log"},
+                }
+                results.append(row)
+                verify_logs[sample["sample_id"]] = out.get("verify_log", [])
+
+                done += 1
+                if progress_callback is not None:
+                    progress_callback(
+                        {
+                            "done": done,
+                            "total": total_samples,
+                            "task": task_name,
+                            "sample_id": sample.get("sample_id"),
+                        }
+                    )
+                elif done % 50 == 0 or done == total_samples:
+                    print(f"  [acsd {regime_short}] {done}/{total_samples}")
+
+                if checkpoint_every and done % int(checkpoint_every) == 0:
+                    _flush_checkpoint(partial=True)
+    finally:
+        _flush_checkpoint(partial=(done < total_samples))
+
+    if done < total_samples:
+        print(f"Saved partial -> {csv_path} ({done}/{total_samples})")
+    else:
+        print(f"Saved -> {csv_path}")
     return results

@@ -159,14 +159,17 @@ ACSD_EVAL = {
     "base_k": 8,
     "k_choices": (4, 8, 16),
     "regimes": ("deterministic", "stochastic"),
-    "accept_window": 4,
+    "accept_window": 6,
     "k_low_threshold": 0.20,
     "k_high_threshold": 0.40,
     "rescue_trigger_alpha": 0.18,
-    "rescue_trigger_consecutive": 3,
-    "rescue_hold_steps": 6,
-    "ar_fallback_alpha": 0.12,
-    "ar_fallback_min_tokens": 48,
+    "rescue_trigger_consecutive": 5,
+    "rescue_hold_steps": 4,
+    "rescue_cooldown_steps": 10,
+    "ar_fallback_alpha": 0.08,
+    "ar_fallback_min_tokens": 96,
+    "ar_fallback_consecutive": 3,
+    "checkpoint_every": 50,
 }
 
 # ── Success Criteria ──────────────────────────────────────────────────────────

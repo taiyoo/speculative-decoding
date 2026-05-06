@@ -360,8 +360,11 @@ def ensure_acsd_results(
         "rescue_trigger_alpha": ACSD_EVAL["rescue_trigger_alpha"],
         "rescue_trigger_consecutive": ACSD_EVAL["rescue_trigger_consecutive"],
         "rescue_hold_steps": ACSD_EVAL["rescue_hold_steps"],
+        "rescue_cooldown_steps": ACSD_EVAL.get("rescue_cooldown_steps", 8),
         "ar_fallback_alpha": ACSD_EVAL["ar_fallback_alpha"],
         "ar_fallback_min_tokens": ACSD_EVAL["ar_fallback_min_tokens"],
+        "ar_fallback_consecutive": ACSD_EVAL.get("ar_fallback_consecutive", 3),
+        "checkpoint_every": ACSD_EVAL.get("checkpoint_every", 50),
     }
     run_kwargs.update(acsd_overrides)
 
