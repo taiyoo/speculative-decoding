@@ -153,6 +153,22 @@ DRIFTER_EVAL = {
     "regimes": ("deterministic", "stochastic"),
 }
 
+ACSD_EVAL = {
+    "primary_draft": "0.5B",
+    "rescue_draft": "1.5B",
+    "base_k": 8,
+    "k_choices": (4, 8, 16),
+    "regimes": ("deterministic", "stochastic"),
+    "accept_window": 4,
+    "k_low_threshold": 0.20,
+    "k_high_threshold": 0.40,
+    "rescue_trigger_alpha": 0.18,
+    "rescue_trigger_consecutive": 3,
+    "rescue_hold_steps": 6,
+    "ar_fallback_alpha": 0.12,
+    "ar_fallback_min_tokens": 48,
+}
+
 # ── Success Criteria ──────────────────────────────────────────────────────────
 MIN_SPEEDUP = 1.3          # S >= 1.3x
 MAX_QUALITY_DROP = 1.0     # |ΔQ| <= 1.0 point

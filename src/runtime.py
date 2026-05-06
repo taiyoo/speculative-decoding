@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import MANIFESTS_DIR, RESULTS_DIR, TARGET_MODEL_ID, TARGET_QUANT
+from config import MANIFESTS_DIR, RESULTS_DIR, TARGET_MODEL_ID, TARGET_QUANT, ACSD_EVAL
 from data_loader import load_all_datasets, freeze_manifests, save_full_data, load_from_manifests
 from evaluate import evaluate_results
 from hf_utils import apply_hf_mode_env
@@ -321,6 +321,72 @@ def ensure_drift_results(
                             label=label,
                         )
                     results[key] = rows
+    return results
+
+
+def ensure_acsd_results(
+    ns: dict,
+    primary_draft: str | None = None,
+    rescue_draft: str | None = None,
+    base_k: int | None = None,
+    k_choices: tuple[int, ...] | None = None,
+    regimes: tuple[str, ...] | None = None,
+    label: str = "acsd",
+    **acsd_overrides,
+) -> dict[str, list[dict]]:
+    """
+    Run (or load cached) ACSD decoding for each requested regime.
+    """
+    from acsd import run_acsd_grid
+
+    data = ensure_data(ns)
+    target_model, target_tokenizer = ensure_target_model(ns)
+
+    primary = primary_draft or ACSD_EVAL["primary_draft"]
+    rescue = rescue_draft or ACSD_EVAL["rescue_draft"]
+    base_k_val = int(base_k if base_k is not None else ACSD_EVAL["base_k"])
+    k_choices_val = tuple(k_choices or ACSD_EVAL["k_choices"])
+    regimes_val = tuple(regimes or ACSD_EVAL["regimes"])
+
+    draft_models = {
+        primary: ensure_draft_model(ns, primary)[0],
+        rescue: ensure_draft_model(ns, rescue)[0],
+    }
+
+    run_kwargs = {
+        "accept_window": ACSD_EVAL["accept_window"],
+        "k_low_threshold": ACSD_EVAL["k_low_threshold"],
+        "k_high_threshold": ACSD_EVAL["k_high_threshold"],
+        "rescue_trigger_alpha": ACSD_EVAL["rescue_trigger_alpha"],
+        "rescue_trigger_consecutive": ACSD_EVAL["rescue_trigger_consecutive"],
+        "rescue_hold_steps": ACSD_EVAL["rescue_hold_steps"],
+        "ar_fallback_alpha": ACSD_EVAL["ar_fallback_alpha"],
+        "ar_fallback_min_tokens": ACSD_EVAL["ar_fallback_min_tokens"],
+    }
+    run_kwargs.update(acsd_overrides)
+
+    results = ns.setdefault("acsd_results", {})
+    for regime in regimes_val:
+        short = "det" if regime == "deterministic" else "stoch"
+        csv_path = RESULTS_DIR / f"{label}_{primary}_to_{rescue}_{short}.csv"
+        key = f"{label}_{primary}_to_{rescue}_{regime}"
+        rows = _read_results_csv(csv_path)
+        if not rows:
+            rows = run_acsd_grid(
+                data=data,
+                regime_name=regime,
+                target_model=target_model,
+                target_tokenizer=target_tokenizer,
+                draft_models=draft_models,
+                primary_label=primary,
+                rescue_label=rescue,
+                base_k=base_k_val,
+                k_choices=k_choices_val,
+                label=label,
+                **run_kwargs,
+            )
+        results[key] = rows
+
     return results
 
 
