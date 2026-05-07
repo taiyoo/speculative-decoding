@@ -1,4 +1,4 @@
-\section{ACSD Extension (Prospective)}
+\section{ACSD Extension}
 \label{sec:acsd}
 
 The current empirical study identifies a practical optimum at moderate block
@@ -6,7 +6,9 @@ size ($k{=}8$). Beyond this point, accepted block length can increase while net
 speedup declines, indicating that fixed-policy drafting is vulnerable to
 acceptance collapse and long-tail latency. This motivates a targeted extension:
 Adaptive Cascaded Speculative Decoding (ACSD), which keeps the standard
-verifier but adapts policy online.
+verifier but adapts policy online. In the latest implementation, ACSD is
+integrated into the Phase 7/8 pipeline with additional runtime-stability
+controls to reduce pathological latency tails in long runs.
 
 \subsection{Design objective}
 
@@ -21,17 +23,22 @@ adapting draft policy at sample level.
 
 \subsection{Proposed approach}
 
-ACSD combines three online controls while preserving standard target-side
+ACSD combines four online controls while preserving standard target-side
 verification:
 \begin{enumerate}
   \item \textbf{Adaptive $k$:} choose $k\in\{4,8,16\}$ from rolling acceptance,
-        using larger blocks only when acceptance supports it.
+        using larger blocks only when acceptance supports it. To avoid cold-start
+        overshoot, each sample starts from base $k$ before adaptive updates.
   \item \textbf{Cascaded draft switch:} use 0.5B as a fast primary drafter and
         switch to 1.5B rescue drafting when acceptance remains low for
-        consecutive verify steps.
+        consecutive verify steps, then enforce a cooldown before a new rescue
+        episode to reduce oscillation.
   \item \textbf{Tail guardrail:} if acceptance stays below a threshold after a
-        minimum generated length, fall back to target-only autoregressive
-        decoding for the remainder of that sample.
+        minimum generated length for multiple consecutive checks, fall back to
+        target-only autoregressive decoding for the remainder of that sample.
+  \item \textbf{Checkpointed execution:} persist partial CSV and verify-log
+        artifacts every fixed number of samples so interrupted long runs retain
+        recoverable progress.
 \end{enumerate}
 
 This design preserves verifier compatibility and allows direct comparison with
@@ -54,9 +61,9 @@ hardware.
 \node[box, left=of high, xshift=-8mm] (kup) {Increase $k$\\toward 16};
 \node[decision, below=of high] (low) {$\alpha \le \tau_{\text{low}}$?};
 \node[box, left=of low, xshift=-8mm] (kdown) {Reduce $k$\\toward 4};
-\node[decision, below=of low] (rescue) {Low-accept streak\\$\ge c$?};
+\node[decision, below=of low] (rescue) {Low-accept streak\\$\ge c$ and cooldown=0?};
 \node[box, left=of rescue, xshift=-8mm] (switch) {Switch to 1.5B rescue\\for $h$ cycles};
-\node[decision, below=of rescue] (fallback) {$\alpha < \tau_{\text{AR}}$ and\\length $\ge L_{\min}$?};
+\node[decision, below=of rescue] (fallback) {$\alpha < \tau_{\text{AR}}$ for\\$m$ checks and length $\ge L_{\min}$?};
 \node[box, right=of fallback, xshift=8mm] (ar) {Fallback to target-only\\AR for tail};
 \node[box, below=of fallback] (loop) {Continue next ACSD cycle};
 \node[box, below=of loop] (end) {EOS or max tokens\\end sample};
@@ -84,8 +91,8 @@ hardware.
 }
 \caption{Adaptive Cascaded Speculative Decoding (ACSD) control loop. ACSD
 adapts block size from rolling acceptance, switches from the 0.5B primary to a
-1.5B rescue drafter when acceptance remains low, and applies target-only
-autoregressive fallback for pathological tails.}
+1.5B rescue drafter when acceptance remains low, applies rescue cooldown, and
+uses delayed target-only autoregressive fallback for pathological tails.}
 \label{fig:acsd-flow}
 \end{figure}
 
@@ -107,7 +114,8 @@ fixed-policy decoding showed diminishing returns.
 
 \subsection{Status}
 
-At the time of writing, ACSD is a planned extension and is not included in the
-quantitative results of Section~\ref{sec:results}. We include it here to make
-the research trajectory explicit and to separate completed evidence from
-forward-looking engineering work.
+ACSD is implemented in the current code and notebook pipeline (Phase 7/8),
+including adaptive-$k$, rescue cooldown, delayed fallback, and periodic
+checkpoint writes for long runs. Quantitative ACSD headline results are still
+being finalized and are therefore reported separately from the fixed-policy
+summary table in Section~\ref{sec:results}.

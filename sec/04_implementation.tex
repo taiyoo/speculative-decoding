@@ -27,6 +27,44 @@ target verifies the proposal in one pass over the extended prefix; the accepted
 prefix is committed up to the first mismatch; and one correction token is added
 from the target distribution when needed. This procedure preserves target-level
 generation semantics while exposing acceptance statistics needed for analysis.
+Figure~\ref{fig:specdec-impl-flow} summarizes this implementation flow.
+
+\begin{figure}[t]
+\centering
+\resizebox{0.98\columnwidth}{!}{%
+\begin{tikzpicture}[
+	node distance=4.8mm and 6mm,
+	box/.style={rectangle, draw, rounded corners=1mm, align=center, minimum height=6mm, text width=31mm, inner sep=1.5mm},
+	decision/.style={diamond, draw, align=center, aspect=2, inner sep=1.1mm, text width=22mm},
+	line/.style={-Latex, thick, shorten >=1pt, shorten <=1pt}
+]
+\node[box] (start) {Start sample\\encode prompt and init KV cache};
+\node[box, below=of start] (draft) {Draft model proposes\\up to $k$ tokens};
+\node[box, below=of draft] (verify) {Target verifies draft block\\in one forward pass};
+\node[decision, below=of verify] (accept) {All $k$ tokens\\accepted?};
+\node[box, left=of accept, xshift=-9mm] (bonus) {Commit $k$ tokens\\+ one target bonus token};
+\node[box, right=of accept, xshift=9mm] (correct) {Commit accepted prefix\\+ one corrected target token};
+\node[box, below=of accept, yshift=-2mm] (crop) {Crop/update draft and target\\KV caches to committed prefix};
+\node[decision, below=of crop] (stop) {EOS or max tokens\\reached?};
+\node[box, below=of stop] (end) {Finish sample and\\record runtime/quality fields};
+
+\draw[line] (start) -- (draft);
+\draw[line] (draft) -- (verify);
+\draw[line] (verify) -- (accept);
+\draw[line] (accept) -- node[above, font=\scriptsize] {yes} (bonus);
+\draw[line] (accept) -- node[above, font=\scriptsize] {no} (correct);
+\draw[line] (bonus) |- (crop.west);
+\draw[line] (correct) |- (crop.east);
+\draw[line] (crop) -- (stop);
+\draw[line] (stop) -- node[right, font=\scriptsize] {yes} (end);
+\draw[line] (stop.west) -- ++(-14mm,0) |- node[pos=0.25, left, font=\scriptsize] {no} (draft.west);
+\end{tikzpicture}%
+}
+\caption{Vanilla speculative decoding implementation flow used in Phases 3--4.
+The target model remains the verifier of record; accepted draft prefixes are
+committed and caches are cropped to preserve exact target-consistent decoding.}
+\label{fig:specdec-impl-flow}
+\end{figure}
 
 \paragraph{Regimes and outputs.}
 The same verification core is used for deterministic and stochastic modes,
