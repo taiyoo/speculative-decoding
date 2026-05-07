@@ -15,7 +15,7 @@ from config import (
 from quantization import get_quant_kwargs
 from sampling import sample_next_token
 from hf_utils import apply_hf_mode_env, hf_model_kwargs
-from utils import set_seed, GPUTimer, write_csv
+from utils import set_seed, GPUTimer, maybe_compile_model, write_csv
 
 
 def _get_quant_kwargs():
@@ -41,6 +41,7 @@ def load_target_model():
         **hf_kwargs,
     )
     model.eval()
+    model = maybe_compile_model(model, label="target_model")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     return model, tokenizer

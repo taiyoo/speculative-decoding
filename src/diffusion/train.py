@@ -35,6 +35,7 @@ from torch.utils.data import DataLoader, Dataset
 from config import RESULTS_DIR, TARGET_MODEL_ID
 from .drifter import DriftDiffuser, DrifterConfig
 from .schedule import DriftSchedule
+from utils import maybe_compile_model
 from .sampler import iterative_unmask
 
 
@@ -332,4 +333,5 @@ def load_drifter(checkpoint_path: Path | str, device: str | None = None) -> tupl
     model = DriftDiffuser(cfg).to(device_t)
     model.load_state_dict(ckpt["model"])
     model.eval()
+    model = maybe_compile_model(model, label="drifter")
     return model, schedule

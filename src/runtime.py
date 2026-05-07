@@ -9,7 +9,15 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import MANIFESTS_DIR, RESULTS_DIR, TARGET_MODEL_ID, TARGET_QUANT, ACSD_EVAL
+from config import (
+    MANIFESTS_DIR,
+    RESULTS_DIR,
+    TARGET_MODEL_ID,
+    TARGET_QUANT,
+    ACSD_EVAL,
+    DRAFT_LENGTHS,
+    DRIFTER_EVAL,
+)
 from data_loader import load_all_datasets, freeze_manifests, save_full_data, load_from_manifests
 from evaluate import evaluate_results
 from hf_utils import apply_hf_mode_env
@@ -172,7 +180,7 @@ def ensure_spec_results(ns: dict, draft_label: str) -> dict[str, list[dict]]:
         "deterministic": "det",
         "stochastic": "stoch",
     }
-    for k_val in [4, 8, 16]:
+    for k_val in DRAFT_LENGTHS:
         for regime_name, regime_short in regime_suffixes.items():
             csv_path = RESULTS_DIR / f"spec_{draft_label}_k{k_val}_{regime_short}.csv"
             rows = _read_results_csv(csv_path)
@@ -288,10 +296,10 @@ def ensure_drifter(
 
 def ensure_drift_results(
     ns: dict,
-    k_values=(8, 16),
-    n_denoise_steps=(3,),
-    accept_modes=("block",),
-    regimes=("deterministic", "stochastic"),
+    k_values=None,
+    n_denoise_steps=None,
+    accept_modes=None,
+    regimes=None,
     label: str = "drift",
 ) -> dict[str, list[dict]]:
     """
@@ -302,6 +310,11 @@ def ensure_drift_results(
     data = ensure_data(ns)
     target_model, target_tokenizer = ensure_target_model(ns)
     drifter, _ = ensure_drifter(ns)
+
+    k_values = tuple(k_values or DRIFTER_EVAL["k_values"])
+    n_denoise_steps = tuple(n_denoise_steps or DRIFTER_EVAL["n_denoise_steps"])
+    accept_modes = tuple(accept_modes or DRIFTER_EVAL["accept_modes"])
+    regimes = tuple(regimes or DRIFTER_EVAL["regimes"])
 
     results = ns.setdefault("drift_results", {})
     for k in k_values:

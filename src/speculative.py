@@ -14,6 +14,7 @@ Supports both deterministic and stochastic regimes.
 """
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -26,12 +27,12 @@ from config import (
     DRAFT_LENGTHS, RESULTS_DIR, STABILITY_DIR, SEED, STABILITY_SEEDS,
     QUANT_MODE, DRAFT_QUANT, TARGET_QUANT,
     GPU_USE_SEPARATE_STREAMS, GPU_PREALLOCATE_STEP_BUFFERS,
-    GPU_USE_STABLE_STEP_SHAPES, GPU_TRY_CUDA_GRAPHS,
+    GPU_USE_STABLE_STEP_SHAPES, GPU_TRY_CUDA_GRAPHS, GPU_REQUIRE_CUDA_GRAPHS,
 )
 from quantization import get_quant_kwargs
 from sampling import probs_from_logits, sample_next_token_and_prob
 from hf_utils import apply_hf_mode_env, hf_model_kwargs
-from utils import set_seed, GPUTimer, write_csv
+from utils import set_seed, GPUTimer, maybe_compile_model, write_csv
 
 
 VERIFY_LOG_DIR = RESULTS_DIR / "verify_logs"
@@ -41,6 +42,8 @@ def _supports_advanced_cuda_path(model) -> bool:
     """Return whether custom CUDA stream + fixed-shape path is likely safe."""
     model_type = str(getattr(getattr(model, "config", None), "model_type", "")).lower()
     if model_type in {"qwen2", "qwen2_moe"}:
+        # Qwen2 can be unstable on non-default streams, but CUDA graph capture
+        # is attempted separately with runtime fallback.
         return False
 
     # Quantized wrappers/kernels are often bound to the default stream.
@@ -53,6 +56,82 @@ def _supports_advanced_cuda_path(model) -> bool:
         return False
 
     return True
+
+
+def _cuda_graph_possible(
+    target_device: torch.device,
+    draft_device: torch.device,
+    step_input_buffer: torch.Tensor | None,
+    stable_step_shapes: bool,
+    target_model=None,
+    draft_model=None,
+) -> bool:
+    """Return whether CUDA graph capture is possible for the verify phase."""
+    # Qwen2 + Accelerate hook stacks are frequently unstable under stream capture
+    # on Windows/WDDM. Keep graph implementation available, but default off for
+    # this family unless user explicitly forces it.
+    if os.environ.get("SPECDEC_FORCE_QWEN_CUDA_GRAPHS", "0") != "1":
+        for m in (target_model, draft_model):
+            model_type = str(getattr(getattr(m, "config", None), "model_type", "")).lower()
+            if model_type in {"qwen2", "qwen2_moe"}:
+                return False
+
+    return bool(
+        GPU_TRY_CUDA_GRAPHS
+        and torch.cuda.is_available()
+        and target_device.type == "cuda"
+        and draft_device.type == "cuda"
+        and target_device.index == draft_device.index
+        and step_input_buffer is not None
+        and stable_step_shapes
+    )
+
+
+def _graph_cache_supported(past_key_values) -> bool:
+    """CUDA graph verify path requires in-place mutable KV cache semantics."""
+    return past_key_values is not None and hasattr(past_key_values, "crop")
+
+
+def _first_oov_pos(tokens_1d: torch.Tensor, vocab_size: int) -> int | None:
+    """Return first out-of-vocab token index in a 1D token tensor, else None."""
+    if tokens_1d.numel() == 0:
+        return None
+    invalid = (tokens_1d < 0) | (tokens_1d >= int(vocab_size))
+    if not bool(invalid.any()):
+        return None
+    return int(torch.nonzero(invalid, as_tuple=False)[0].item())
+
+
+def _has_oov(tokens_2d: torch.Tensor, vocab_size: int) -> bool:
+    """Return True if any token id in a (B, T) tensor is outside [0, vocab_size)."""
+    if tokens_2d.numel() == 0:
+        return False
+    return bool(((tokens_2d < 0) | (tokens_2d >= int(vocab_size))).any())
+
+
+def _safe_fallback_token_id(vocab_size: int, preferred_id: int | None = None) -> int:
+    """Choose a valid token id in [0, vocab_size) for OOV replacement."""
+    if vocab_size <= 0:
+        return 0
+    if preferred_id is not None and 0 <= int(preferred_id) < int(vocab_size):
+        return int(preferred_id)
+    return 0
+
+
+def _sanitize_token_ids(
+    tokens: torch.Tensor,
+    vocab_size: int,
+    fallback_id: int,
+) -> tuple[torch.Tensor, int]:
+    """Replace OOV token ids with `fallback_id` and return (sanitized, n_fixed)."""
+    if tokens.numel() == 0 or vocab_size <= 0:
+        return tokens, 0
+    invalid = (tokens < 0) | (tokens >= int(vocab_size))
+    if not bool(invalid.any()):
+        return tokens, 0
+    sanitized = tokens.clone()
+    sanitized[invalid] = int(fallback_id)
+    return sanitized, int(invalid.sum().item())
 
 
 def _get_quant_kwargs():
@@ -77,6 +156,7 @@ def load_draft_model(draft_label: str):
         **hf_kwargs,
     )
     model.eval()
+    model = maybe_compile_model(model, label=f"draft_model[{draft_label}]")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     return model, tokenizer
@@ -126,6 +206,7 @@ def load_model_on_device(
         model = model.to(device)
 
     model.eval()
+    model = maybe_compile_model(model, label=model_id)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     return model, tokenizer
@@ -183,13 +264,17 @@ def _draft_generate(
 
     Returns:
         proposed: (1, k) tensor of draft tokens (on draft device)
-        q_token_probs: list[float] of length k (q_i(y_i) under draft policy)
+        q_token_probs: (k,) tensor with q_i(y_i) under the draft policy, or None
         q_step_logits: (k, vocab) tensor on the draft device, or None
         past_key_values: updated cache covering prefix + k draft tokens
     """
-    q_token_probs: list[float] = []
+    q_token_probs: list[torch.Tensor] = []
     q_step_logits: list[torch.Tensor] = []
     proposed_tokens: list[torch.Tensor] = []
+
+    draft_vocab_size = int(getattr(getattr(draft_model, "config", None), "vocab_size", 0) or 0)
+    fallback_id = _safe_fallback_token_id(draft_vocab_size)
+    new_input_ids, _ = _sanitize_token_ids(new_input_ids, draft_vocab_size, fallback_id)
 
     with torch.inference_mode():
         outputs = draft_model(
@@ -209,7 +294,8 @@ def _draft_generate(
                 gen_kwargs,
                 return_probs=False,
             )
-            q_token_probs.append(float(token_prob.item()) if keep_step_logits else 1.0)
+            if keep_step_logits:
+                q_token_probs.append(token_prob.reshape(1).detach())
             proposed_tokens.append(next_token)
 
             if step < k - 1:
@@ -222,14 +308,15 @@ def _draft_generate(
                 past_key_values = outputs.past_key_values
 
     proposed = torch.cat(proposed_tokens, dim=-1)
+    q_prob_tensor = torch.cat(q_token_probs, dim=0) if keep_step_logits else None
     q_logits_tensor = torch.stack(q_step_logits, dim=0) if keep_step_logits else None
-    return proposed, q_token_probs, q_logits_tensor, past_key_values
+    return proposed, q_prob_tensor, q_logits_tensor, past_key_values
 
 
 def _verify_block(
     verify_logits: torch.Tensor,
-    draft_tokens: list[int],
-    q_token_probs: list[float],
+    draft_tokens: torch.Tensor,
+    q_token_probs: torch.Tensor | None,
     q_step_logits,
     gen_kwargs: dict,
 ) -> tuple[int, int]:
@@ -244,17 +331,27 @@ def _verify_block(
         emitted_token: int — the new token to append (corrected or bonus).
         n_accepted:    int — number of draft tokens accepted (0..k).
     """
-    k = len(draft_tokens)
+    k = int(draft_tokens.shape[0])
     sample_mode = gen_kwargs.get("do_sample", False)
 
     for i in range(k):
         logits_i = verify_logits[i].unsqueeze(0)
-        d_tok = int(draft_tokens[i])
+        d_tok = int(draft_tokens[i].item())
+
+        # If draft token id is not in target vocabulary, force an immediate
+        # rejection at this position using target distribution.
+        if d_tok < 0 or d_tok >= int(logits_i.shape[-1]):
+            if sample_mode:
+                p_probs = probs_from_logits(logits_i, gen_kwargs)
+                emitted = int(torch.multinomial(p_probs, 1).item())
+            else:
+                emitted = int(logits_i.argmax(dim=-1).item())
+            return emitted, i
 
         if sample_mode:
             p_probs = probs_from_logits(logits_i, gen_kwargs)
             p_tok = float(p_probs[0, d_tok].item())
-            q_tok = max(float(q_token_probs[i]), 1e-12)
+            q_tok = max(float(q_token_probs[i].item()), 1e-12)
             accept_prob = min(1.0, p_tok / q_tok)
 
             if float(torch.rand(1).item()) < accept_prob:
@@ -333,6 +430,10 @@ def speculative_decode_sample(
 
     eos_id = tokenizer.eos_token_id
     keep_step_logits = bool(gen_kwargs.get("do_sample", False))
+    target_vocab_size = int(getattr(getattr(target_model, "config", None), "vocab_size", 0) or 0)
+    draft_vocab_size = int(getattr(getattr(draft_model, "config", None), "vocab_size", 0) or 0)
+    target_fallback_id = _safe_fallback_token_id(target_vocab_size, tokenizer.eos_token_id)
+    draft_fallback_id = _safe_fallback_token_id(draft_vocab_size, tokenizer.eos_token_id)
 
     target_past = None
     draft_past = None
@@ -364,12 +465,35 @@ def speculative_decode_sample(
     )
     if not advanced_cuda_path_enabled:
         stream_pipeline_enabled = False
-        stable_step_shapes = False
+        if not GPU_TRY_CUDA_GRAPHS:
+            stable_step_shapes = False
 
     graph_capture_note = "disabled"
     if GPU_TRY_CUDA_GRAPHS:
-        # Dynamic KV-cache mutation is not graph-safe in this code path yet.
-        graph_capture_note = "unsupported_dynamic_kv"
+        graph_capture_note = "pending"
+
+    graph_state = {
+        "enabled": _cuda_graph_possible(
+            target_device,
+            draft_device,
+            step_input_buffer,
+            stable_step_shapes,
+            target_model,
+            draft_model,
+        ),
+        "captured": False,
+        "failed": False,
+        "graph": None,
+        "input": None,
+        "logits": None,
+        "past": None,
+        "cache_id": None,
+        "max_window": int(k + 1),
+    }
+
+    # If graph capture is available, prefer it over separate verify streams.
+    if graph_state["enabled"]:
+        stream_pipeline_enabled = False
 
     draft_stream = None
     verify_stream = None
@@ -396,6 +520,76 @@ def speculative_decode_sample(
             effective_k = min(k, remaining)
             if effective_k <= 0:
                 break
+
+            target_pending_input, n_fix_target_pending = _sanitize_token_ids(
+                target_pending_input,
+                target_vocab_size,
+                target_fallback_id,
+            )
+            draft_pending_input, n_fix_draft_pending = _sanitize_token_ids(
+                draft_pending_input,
+                draft_vocab_size,
+                draft_fallback_id,
+            )
+
+            # If the next token to feed draft is out-of-vocab for draft model,
+            # run one target-only AR step and continue. This avoids embedding
+            # index asserts when target and draft vocabularies differ.
+            if draft_vocab_size > 0 and _has_oov(draft_pending_input, draft_vocab_size):
+                verify_started_at = time.perf_counter()
+                with torch.inference_mode():
+                    target_outputs = target_model(
+                        target_pending_input,
+                        past_key_values=target_past,
+                        use_cache=True,
+                    )
+                target_past = target_outputs.past_key_values
+                bonus_logits = target_outputs.logits[:, -1, :]
+                if gen_kwargs.get("do_sample", False):
+                    bonus_probs = probs_from_logits(bonus_logits, gen_kwargs)
+                    emitted = int(torch.multinomial(bonus_probs, 1).item())
+                else:
+                    emitted = int(bonus_logits.argmax(dim=-1).item())
+                verify_elapsed_s_total += time.perf_counter() - verify_started_at
+
+                if n_verify_steps == 0:
+                    ttft_elapsed_ms = (time.perf_counter() - ttft_start) * 1000.0
+
+                total_proposed += effective_k
+                total_accepted += 0
+                n_verify_steps += 1
+                verify_log.append({
+                    "step": n_verify_steps,
+                    "proposed": effective_k,
+                    "accepted": 0,
+                    "abs_position": n_input + len(accepted_tokens),
+                    "draft_input_oov": True,
+                })
+
+                keep_len = n_input + len(accepted_tokens)
+                target_past = _crop_cache(target_past, keep_len)
+                draft_past = _crop_cache(draft_past, keep_len)
+
+                accepted_tokens.append(int(emitted))
+                if len(accepted_tokens) > max_new_tokens:
+                    accepted_tokens = accepted_tokens[:max_new_tokens]
+                    break
+
+                one_token_target_buffer.fill_(int(emitted))
+                target_pending_input = one_token_target_buffer
+                draft_pending_input = (
+                    target_pending_input
+                    if draft_device == target_device
+                    else one_token_draft_buffer.copy_(target_pending_input, non_blocking=True)
+                )
+
+                if eos_id is not None and int(emitted) == int(eos_id):
+                    if int(eos_id) in accepted_tokens:
+                        eos_pos = accepted_tokens.index(int(eos_id))
+                        accepted_tokens = accepted_tokens[:eos_pos]
+                    stopped_eos = True
+                    break
+                continue
 
             # ---- Draft phase ----
             draft_started_at = time.perf_counter()
@@ -434,8 +628,76 @@ def speculative_decode_sample(
             else:
                 draft_tokens_t = draft_tokens
 
+            # Guard against tokenizer/vocab mismatches between draft and target.
+            # We only verify the valid prefix before the first OOV draft token.
+            safe_k = effective_k
+            oov_pos = None
+            if target_vocab_size > 0:
+                oov_pos = _first_oov_pos(draft_tokens_t.squeeze(0)[:effective_k], target_vocab_size)
+                if oov_pos is not None:
+                    safe_k = int(oov_pos)
+
             if stream_pipeline_enabled and draft_ready_event is not None:
                 verify_stream.wait_event(draft_ready_event)
+
+            if safe_k == 0:
+                verify_started_at = time.perf_counter()
+                with torch.inference_mode():
+                    target_outputs = target_model(
+                        target_pending_input,
+                        past_key_values=target_past,
+                        use_cache=True,
+                    )
+                target_past = target_outputs.past_key_values
+                bonus_logits = target_outputs.logits[:, -1, :]
+                if gen_kwargs.get("do_sample", False):
+                    bonus_probs = probs_from_logits(bonus_logits, gen_kwargs)
+                    emitted = int(torch.multinomial(bonus_probs, 1).item())
+                else:
+                    emitted = int(bonus_logits.argmax(dim=-1).item())
+                n_acc = 0
+                verify_elapsed_s_total += time.perf_counter() - verify_started_at
+
+                if n_verify_steps == 0:
+                    ttft_elapsed_ms = (time.perf_counter() - ttft_start) * 1000.0
+
+                total_proposed += effective_k
+                total_accepted += n_acc
+                n_verify_steps += 1
+                verify_log.append({
+                    "step": n_verify_steps,
+                    "proposed": effective_k,
+                    "accepted": n_acc,
+                    "abs_position": n_input + len(accepted_tokens),
+                    "oov_reject": True,
+                    "target_pending_sanitized": n_fix_target_pending,
+                    "draft_pending_sanitized": n_fix_draft_pending,
+                })
+
+                keep_len = n_input + len(accepted_tokens)
+                target_past = _crop_cache(target_past, keep_len)
+                draft_past = _crop_cache(draft_past, keep_len)
+
+                accepted_tokens.append(int(emitted))
+                if len(accepted_tokens) > max_new_tokens:
+                    accepted_tokens = accepted_tokens[:max_new_tokens]
+                    break
+
+                one_token_target_buffer.fill_(int(emitted))
+                target_pending_input = one_token_target_buffer
+                draft_pending_input = (
+                    target_pending_input
+                    if draft_device == target_device
+                    else one_token_draft_buffer.copy_(target_pending_input, non_blocking=True)
+                )
+
+                if eos_id is not None and int(emitted) == int(eos_id):
+                    if int(eos_id) in accepted_tokens:
+                        eos_pos = accepted_tokens.index(int(eos_id))
+                        accepted_tokens = accepted_tokens[:eos_pos]
+                    stopped_eos = True
+                    break
+                continue
 
             use_buffered_step = (
                 step_input_buffer is not None
@@ -445,20 +707,98 @@ def speculative_decode_sample(
             fixed_shape_step = bool(use_buffered_step and stable_step_shapes)
             if use_buffered_step:
                 step_input_buffer[:, :1].copy_(target_pending_input)
-                step_input_buffer[:, 1:effective_k + 1].copy_(draft_tokens_t[:, :effective_k])
-                if fixed_shape_step and effective_k < k:
+                step_input_buffer[:, 1:safe_k + 1].copy_(draft_tokens_t[:, :safe_k])
+                if fixed_shape_step and safe_k < k:
                     pad_id = int(eos_id) if eos_id is not None else int(target_pending_input[0, 0].item())
-                    step_input_buffer[:, effective_k + 1:k + 1].fill_(pad_id)
+                    step_input_buffer[:, safe_k + 1:k + 1].fill_(pad_id)
                     target_input = step_input_buffer
                     verify_window = k + 1
                 else:
-                    target_input = step_input_buffer[:, :effective_k + 1]
-                    verify_window = effective_k + 1
+                    target_input = step_input_buffer[:, :safe_k + 1]
+                    verify_window = safe_k + 1
             else:
-                target_input = torch.cat([target_pending_input, draft_tokens_t], dim=-1)
-                verify_window = effective_k + 1
+                target_input = torch.cat([target_pending_input, draft_tokens_t[:, :safe_k]], dim=-1)
+                verify_window = safe_k + 1
+
+            target_input, n_fix_target_input = _sanitize_token_ids(
+                target_input,
+                target_vocab_size,
+                target_fallback_id,
+            )
+            # Final hard clamp before target embedding lookup. This is a strict
+            # safety net to prevent any out-of-range token id from reaching
+            # target_model when tokenizer/model vocab metadata drift.
+            if target_vocab_size > 0:
+                clamp_max = int(target_vocab_size - 1)
+                target_input_clamped = torch.clamp(target_input, min=0, max=clamp_max)
+                n_clamped = int((target_input_clamped != target_input).sum().item())
+                target_input = target_input_clamped
+            else:
+                n_clamped = 0
 
             verify_started_at = time.perf_counter()
+            can_try_graph = bool(
+                graph_state["enabled"]
+                and not graph_state["failed"]
+                and _graph_cache_supported(target_past)
+                and fixed_shape_step
+            )
+
+            if (
+                can_try_graph
+                and graph_state["captured"]
+                and graph_state.get("cache_id") != id(target_past)
+            ):
+                graph_state["captured"] = False
+                graph_state["graph"] = None
+                graph_state["input"] = None
+                graph_state["logits"] = None
+                graph_state["past"] = None
+                graph_state["cache_id"] = None
+                graph_capture_note = "recapture_pending"
+
+            if can_try_graph and not graph_state["captured"]:
+                try:
+                    graph_input = torch.empty(
+                        (1, graph_state["max_window"]),
+                        device=target_device,
+                        dtype=input_ids.dtype,
+                    )
+                    graph_input.copy_(target_input)
+
+                    warmup_stream = torch.cuda.Stream(device=target_device)
+                    with torch.cuda.stream(warmup_stream):
+                        for _ in range(2):
+                            target_model(
+                                graph_input,
+                                past_key_values=target_past,
+                                use_cache=True,
+                            )
+                    torch.cuda.current_stream(device=target_device).wait_stream(warmup_stream)
+
+                    graph = torch.cuda.CUDAGraph()
+                    with torch.cuda.graph(graph):
+                        graph_outputs = target_model(
+                            graph_input,
+                            past_key_values=target_past,
+                            use_cache=True,
+                        )
+                        graph_logits = graph_outputs.logits
+                        graph_past = graph_outputs.past_key_values
+
+                    graph_state["graph"] = graph
+                    graph_state["input"] = graph_input
+                    graph_state["logits"] = graph_logits
+                    graph_state["past"] = graph_past
+                    graph_state["cache_id"] = id(target_past)
+                    graph_state["captured"] = True
+                    graph_capture_note = "captured"
+                except Exception:
+                    graph_state["failed"] = True
+                    graph_capture_note = "capture_failed_fallback_eager"
+                    if GPU_REQUIRE_CUDA_GRAPHS:
+                        raise RuntimeError("CUDA Graph capture failed and GPU_REQUIRE_CUDA_GRAPHS=True")
+
             if verify_stream is not None:
                 with torch.cuda.stream(verify_stream):
                     with torch.inference_mode():
@@ -469,16 +809,53 @@ def speculative_decode_sample(
                         )
                     target_past = target_outputs.past_key_values
                     verify_logits = target_outputs.logits[0, -verify_window:, :]
-                    if fixed_shape_step and effective_k < k:
-                        verify_logits = verify_logits[:effective_k + 1, :]
+                    if fixed_shape_step and safe_k < k:
+                        verify_logits = verify_logits[:safe_k + 1, :]
                     emitted, n_acc = _verify_block(
                         verify_logits,
-                        draft_tokens.squeeze(0).tolist(),
+                        draft_tokens.squeeze(0)[:safe_k],
                         q_token_probs,
                         q_step_logits,
                         gen_kwargs,
                     )
                 torch.cuda.current_stream(device=target_device).wait_stream(verify_stream)
+            elif can_try_graph and graph_state["captured"]:
+                try:
+                    graph_state["input"].copy_(target_input)
+                    graph_state["graph"].replay()
+                    target_past = graph_state["past"]
+                    verify_logits = graph_state["logits"][0, -verify_window:, :]
+                    if fixed_shape_step and safe_k < k:
+                        verify_logits = verify_logits[:safe_k + 1, :]
+                    emitted, n_acc = _verify_block(
+                        verify_logits,
+                        draft_tokens.squeeze(0)[:safe_k],
+                        (q_token_probs[:safe_k] if q_token_probs is not None else None),
+                        (q_step_logits[:safe_k] if q_step_logits is not None else None),
+                        gen_kwargs,
+                    )
+                except Exception:
+                    graph_state["failed"] = True
+                    graph_capture_note = "replay_failed_fallback_eager"
+                    if GPU_REQUIRE_CUDA_GRAPHS:
+                        raise RuntimeError("CUDA Graph replay failed and GPU_REQUIRE_CUDA_GRAPHS=True")
+                    with torch.inference_mode():
+                        target_outputs = target_model(
+                            target_input,
+                            past_key_values=target_past,
+                            use_cache=True,
+                        )
+                    target_past = target_outputs.past_key_values
+                    verify_logits = target_outputs.logits[0, -verify_window:, :]
+                    if fixed_shape_step and safe_k < k:
+                        verify_logits = verify_logits[:safe_k + 1, :]
+                    emitted, n_acc = _verify_block(
+                        verify_logits,
+                        draft_tokens.squeeze(0)[:safe_k],
+                        (q_token_probs[:safe_k] if q_token_probs is not None else None),
+                        (q_step_logits[:safe_k] if q_step_logits is not None else None),
+                        gen_kwargs,
+                    )
             else:
                 with torch.inference_mode():
                     target_outputs = target_model(
@@ -488,13 +865,13 @@ def speculative_decode_sample(
                     )
                 target_past = target_outputs.past_key_values
                 verify_logits = target_outputs.logits[0, -verify_window:, :]
-                if fixed_shape_step and effective_k < k:
-                    verify_logits = verify_logits[:effective_k + 1, :]
+                if fixed_shape_step and safe_k < k:
+                    verify_logits = verify_logits[:safe_k + 1, :]
                 emitted, n_acc = _verify_block(
                     verify_logits,
-                    draft_tokens.squeeze(0).tolist(),
-                    q_token_probs,
-                    q_step_logits,
+                    draft_tokens.squeeze(0)[:safe_k],
+                    (q_token_probs[:safe_k] if q_token_probs is not None else None),
+                    (q_step_logits[:safe_k] if q_step_logits is not None else None),
                     gen_kwargs,
                 )
             verify_elapsed_s_total += time.perf_counter() - verify_started_at
@@ -510,6 +887,11 @@ def speculative_decode_sample(
                 "proposed": effective_k,
                 "accepted": n_acc,
                 "abs_position": n_input + len(accepted_tokens),
+                "oov_reject": bool(oov_pos is not None),
+                "target_pending_sanitized": n_fix_target_pending,
+                "draft_pending_sanitized": n_fix_draft_pending,
+                "target_input_sanitized": n_fix_target_input,
+                "target_input_clamped": n_clamped,
             })
 
             # ---- Crop both caches back to the accepted prefix length ----

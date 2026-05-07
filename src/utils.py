@@ -124,3 +124,59 @@ def get_env_info() -> dict:
     except ImportError:
         info["transformers"] = "not installed"
     return info
+
+
+def maybe_compile_model(model, label: str = "model"):
+    """Optionally wrap an inference model with torch.compile when configured."""
+    try:
+        import torch
+    except ImportError:
+        return model
+
+    from config import GPU_TRY_TORCH_COMPILE
+
+    if not GPU_TRY_TORCH_COMPILE:
+        return model
+
+    compile_fn = getattr(torch, "compile", None)
+    if compile_fn is None:
+        print(f"[compile] Skipping {label}: torch.compile is unavailable.")
+        return model
+
+    if hasattr(model, "_orig_mod"):
+        return model
+
+    if bool(getattr(model, "is_loaded_in_8bit", False)) or bool(getattr(model, "is_loaded_in_4bit", False)):
+        print(f"[compile] Skipping {label}: quantized models are left in eager mode.")
+        return model
+
+    quant_method = getattr(model, "quantization_method", None)
+    if quant_method is not None and str(quant_method).lower() not in {"none", ""}:
+        print(f"[compile] Skipping {label}: quantization backend is not compile-safe.")
+        return model
+
+    hf_device_map = getattr(model, "hf_device_map", None)
+    if isinstance(hf_device_map, dict):
+        devices = {str(v) for v in hf_device_map.values()}
+        if len(devices) > 1:
+            print(f"[compile] Skipping {label}: multi-device placement is not supported.")
+            return model
+
+    try:
+        device = next(model.parameters()).device
+    except StopIteration:
+        print(f"[compile] Skipping {label}: model has no parameters.")
+        return model
+
+    if device.type != "cuda":
+        print(f"[compile] Skipping {label}: reduce-overhead compile is only enabled on CUDA.")
+        return model
+
+    try:
+        compiled = compile_fn(model, mode="reduce-overhead", fullgraph=False)
+    except Exception as exc:
+        print(f"[compile] Failed to compile {label}; using eager mode ({exc}).")
+        return model
+
+    print(f"[compile] Enabled torch.compile for {label}.")
+    return compiled

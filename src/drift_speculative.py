@@ -25,17 +25,54 @@ The CSV gets two extra columns: `n_denoise_steps`, `block_accepted`.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Callable
 
 import torch
 import torch.nn.functional as F
 
-from config import REGIMES, DATASETS, RESULTS_DIR, SEED
+from config import (
+    REGIMES,
+    DATASETS,
+    RESULTS_DIR,
+    SEED,
+    GPU_PREALLOCATE_STEP_BUFFERS,
+    GPU_USE_STABLE_STEP_SHAPES,
+    GPU_TRY_CUDA_GRAPHS,
+    GPU_REQUIRE_CUDA_GRAPHS,
+)
 from diffusion.drifter import DriftDiffuser
 from diffusion.sampler import iterative_unmask
 from sampling import probs_from_logits
 from utils import set_seed, GPUTimer, write_csv
+
+
+def _cuda_graph_possible(
+    target_device: torch.device,
+    step_input_buffer: torch.Tensor | None,
+    stable_step_shapes: bool,
+) -> bool:
+    return bool(
+        GPU_TRY_CUDA_GRAPHS
+        and torch.cuda.is_available()
+        and target_device.type == "cuda"
+        and step_input_buffer is not None
+        and stable_step_shapes
+    )
+
+
+def _graph_cache_supported(past_key_values) -> bool:
+    return past_key_values is not None and hasattr(past_key_values, "crop")
+
+
+def _first_oov_pos(tokens_1d: torch.Tensor, vocab_size: int) -> int | None:
+    if tokens_1d.numel() == 0:
+        return None
+    invalid = (tokens_1d < 0) | (tokens_1d >= int(vocab_size))
+    if not bool(invalid.any()):
+        return None
+    return int(torch.nonzero(invalid, as_tuple=False)[0].item())
 
 
 def _crop_cache(past_key_values, length: int):
@@ -135,11 +172,39 @@ def drift_decode_sample(
     target_device = input_ids.device
     drifter_device = next(drifter.parameters()).device
     eos_id = tokenizer.eos_token_id
+    target_vocab_size = int(getattr(getattr(target_model, "config", None), "vocab_size", 0) or 0)
 
     drifter_ctx_len = drifter_ctx_len or (drifter.cfg.max_ctx_len - drifter.cfg.k_max - 8)
 
     target_past = None
     target_pending_input = input_ids
+    one_token_buf = torch.empty((1, 1), device=target_device, dtype=input_ids.dtype)
+    step_input_buffer = None
+    if GPU_PREALLOCATE_STEP_BUFFERS:
+        step_input_buffer = torch.empty((1, k + 1), device=target_device, dtype=input_ids.dtype)
+    stable_step_shapes = bool(GPU_USE_STABLE_STEP_SHAPES and step_input_buffer is not None)
+
+    graph_capture_note = "disabled"
+    if GPU_TRY_CUDA_GRAPHS:
+        graph_capture_note = "pending"
+
+    graph_state = {
+        "enabled": _cuda_graph_possible(target_device, step_input_buffer, stable_step_shapes),
+        "captured": False,
+        "failed": False,
+        "graph": None,
+        "input": None,
+        "logits": None,
+        "past": None,
+        "cache_id": None,
+        "max_window": int(k + 1),
+    }
+
+    draft_to_target_buffer = (
+        None
+        if drifter_device == target_device
+        else torch.empty((1, k), device=target_device, dtype=input_ids.dtype)
+    )
     accepted_tokens: list[int] = []
 
     total_proposed = 0
@@ -194,25 +259,191 @@ def drift_decode_sample(
                 q_probs = None
 
             # ---- Verify with the target model (single forward) ----
-            draft_block_t = draft_block.to(target_device)
-            target_input = torch.cat([target_pending_input, draft_block_t], dim=-1)
+            if drifter_device != target_device:
+                if draft_to_target_buffer is not None:
+                    draft_block_t = draft_to_target_buffer[:, :effective_k]
+                    draft_block_t.copy_(draft_block[:, :effective_k], non_blocking=True)
+                else:
+                    draft_block_t = draft_block.to(target_device, non_blocking=True)
+            else:
+                draft_block_t = draft_block
+
+            safe_k = effective_k
+            oov_pos = None
+            if target_vocab_size > 0:
+                oov_pos = _first_oov_pos(draft_block_t.squeeze(0)[:effective_k], target_vocab_size)
+                if oov_pos is not None:
+                    safe_k = int(oov_pos)
+
+            if safe_k == 0:
+                target_outputs = target_model(
+                    target_pending_input,
+                    past_key_values=target_past,
+                    use_cache=True,
+                )
+                target_past = target_outputs.past_key_values
+                bonus_logits = target_outputs.logits[:, -1, :]
+                if sample_mode:
+                    bonus_probs = probs_from_logits(bonus_logits, gen_kwargs)
+                    emitted = int(torch.multinomial(bonus_probs, 1).item())
+                else:
+                    emitted = int(bonus_logits.argmax(dim=-1).item())
+                n_acc = 0
+
+                total_proposed += effective_k
+                total_accepted += n_acc
+                n_verify_steps += 1
+                verify_log.append({
+                    "step": n_verify_steps,
+                    "proposed": effective_k,
+                    "accepted": n_acc,
+                    "abs_position": n_input + len(accepted_tokens),
+                    "oov_reject": True,
+                })
+
+                keep_len = n_input + len(accepted_tokens)
+                target_past = _crop_cache(target_past, keep_len)
+
+                accepted_tokens.append(int(emitted))
+                if len(accepted_tokens) > max_new_tokens:
+                    accepted_tokens = accepted_tokens[:max_new_tokens]
+                    break
+
+                one_token_buf.fill_(int(emitted))
+                target_pending_input = one_token_buf
+
+                if eos_id is not None and int(emitted) == int(eos_id):
+                    if int(eos_id) in accepted_tokens:
+                        eos_pos = accepted_tokens.index(int(eos_id))
+                        accepted_tokens = accepted_tokens[:eos_pos]
+                    stopped_eos = True
+                    break
+                continue
+
+            use_buffered_step = (
+                step_input_buffer is not None
+                and target_pending_input.shape[1] == 1
+                and target_past is not None
+            )
+            fixed_shape_step = bool(use_buffered_step and stable_step_shapes)
+            if use_buffered_step:
+                step_input_buffer[:, :1].copy_(target_pending_input)
+                step_input_buffer[:, 1:safe_k + 1].copy_(draft_block_t[:, :safe_k])
+                if fixed_shape_step and safe_k < k:
+                    pad_id = int(eos_id) if eos_id is not None else int(target_pending_input[0, 0].item())
+                    step_input_buffer[:, safe_k + 1:k + 1].fill_(pad_id)
+                    target_input = step_input_buffer
+                    verify_window = k + 1
+                else:
+                    target_input = step_input_buffer[:, :safe_k + 1]
+                    verify_window = safe_k + 1
+            else:
+                target_input = torch.cat([target_pending_input, draft_block_t[:, :safe_k]], dim=-1)
+                verify_window = safe_k + 1
 
             if n_verify_steps == 0:
                 ttft_timer.__enter__()
 
-            target_outputs = target_model(
-                target_input,
-                past_key_values=target_past,
-                use_cache=True,
+            can_try_graph = bool(
+                graph_state["enabled"]
+                and not graph_state["failed"]
+                and fixed_shape_step
+                and _graph_cache_supported(target_past)
             )
-            target_past = target_outputs.past_key_values
-            verify_logits = target_outputs.logits[0, -(effective_k + 1):, :]   # (k+1, V_target)
+
+            if (
+                can_try_graph
+                and graph_state["captured"]
+                and graph_state.get("cache_id") != id(target_past)
+            ):
+                graph_state["captured"] = False
+                graph_state["graph"] = None
+                graph_state["input"] = None
+                graph_state["logits"] = None
+                graph_state["past"] = None
+                graph_state["cache_id"] = None
+                graph_capture_note = "recapture_pending"
+
+            if can_try_graph and not graph_state["captured"]:
+                try:
+                    graph_input = torch.empty(
+                        (1, graph_state["max_window"]),
+                        device=target_device,
+                        dtype=input_ids.dtype,
+                    )
+                    graph_input.copy_(target_input)
+
+                    warmup_stream = torch.cuda.Stream(device=target_device)
+                    with torch.cuda.stream(warmup_stream):
+                        for _ in range(2):
+                            target_model(
+                                graph_input,
+                                past_key_values=target_past,
+                                use_cache=True,
+                            )
+                    torch.cuda.current_stream(device=target_device).wait_stream(warmup_stream)
+
+                    graph = torch.cuda.CUDAGraph()
+                    with torch.cuda.graph(graph):
+                        graph_outputs = target_model(
+                            graph_input,
+                            past_key_values=target_past,
+                            use_cache=True,
+                        )
+                        graph_logits = graph_outputs.logits
+                        graph_past = graph_outputs.past_key_values
+
+                    graph_state["graph"] = graph
+                    graph_state["input"] = graph_input
+                    graph_state["logits"] = graph_logits
+                    graph_state["past"] = graph_past
+                    graph_state["cache_id"] = id(target_past)
+                    graph_state["captured"] = True
+                    graph_capture_note = "captured"
+                except Exception:
+                    graph_state["failed"] = True
+                    graph_capture_note = "capture_failed_fallback_eager"
+                    if GPU_REQUIRE_CUDA_GRAPHS:
+                        raise RuntimeError("CUDA Graph capture failed and GPU_REQUIRE_CUDA_GRAPHS=True")
+
+            if can_try_graph and graph_state["captured"]:
+                try:
+                    graph_state["input"].copy_(target_input)
+                    graph_state["graph"].replay()
+                    target_past = graph_state["past"]
+                    verify_logits = graph_state["logits"][0, -verify_window:, :]
+                    if fixed_shape_step and safe_k < k:
+                        verify_logits = verify_logits[:safe_k + 1, :]
+                except Exception:
+                    graph_state["failed"] = True
+                    graph_capture_note = "replay_failed_fallback_eager"
+                    if GPU_REQUIRE_CUDA_GRAPHS:
+                        raise RuntimeError("CUDA Graph replay failed and GPU_REQUIRE_CUDA_GRAPHS=True")
+                    target_outputs = target_model(
+                        target_input,
+                        past_key_values=target_past,
+                        use_cache=True,
+                    )
+                    target_past = target_outputs.past_key_values
+                    verify_logits = target_outputs.logits[0, -verify_window:, :]
+                    if fixed_shape_step and safe_k < k:
+                        verify_logits = verify_logits[:safe_k + 1, :]
+            else:
+                target_outputs = target_model(
+                    target_input,
+                    past_key_values=target_past,
+                    use_cache=True,
+                )
+                target_past = target_outputs.past_key_values
+                verify_logits = target_outputs.logits[0, -verify_window:, :]
+                if fixed_shape_step and safe_k < k:
+                    verify_logits = verify_logits[:safe_k + 1, :]
 
             if n_verify_steps == 0:
                 ttft_timer.__exit__(None, None, None)
 
-            block_ids_flat = draft_block_t.squeeze(0)
-            block_target_logits = verify_logits[:effective_k, :]               # (k, V_target)
+            block_ids_flat = draft_block_t.squeeze(0)[:safe_k]
+            block_target_logits = verify_logits[:safe_k, :]               # (k, V_target)
             target_probs = probs_from_logits(block_target_logits, gen_kwargs)  # (k, V_target)
 
             # ---- Acceptance ----
@@ -220,11 +451,11 @@ def drift_decode_sample(
                 # Block accept/reject (Bernoulli on whole block)
                 log_ratio = _block_accept_log_ratio(target_probs, q_probs, block_ids_flat)
                 u = float(torch.rand(1).item())
-                accept_block = (log_ratio >= 0.0) or (u < min(1.0, float(torch.exp(torch.tensor(log_ratio)).item())))
+                accept_block = (log_ratio >= 0.0) or (u < min(1.0, math.exp(log_ratio)))
                 if accept_block:
-                    n_acc = effective_k
+                    n_acc = safe_k
                     block_accept_count += 1
-                    bonus_logits = verify_logits[effective_k].unsqueeze(0)
+                    bonus_logits = verify_logits[safe_k].unsqueeze(0)
                     if sample_mode:
                         bonus_probs = probs_from_logits(bonus_logits, gen_kwargs)
                         emitted = int(torch.multinomial(bonus_probs, 1).item())
@@ -244,7 +475,7 @@ def drift_decode_sample(
                     verify_logits,
                     gen_kwargs,
                 )
-                if n_acc == effective_k:
+                if n_acc == safe_k:
                     block_accept_count += 1
 
             total_proposed += effective_k
@@ -255,6 +486,7 @@ def drift_decode_sample(
                 "proposed": effective_k,
                 "accepted": n_acc,
                 "abs_position": n_input + len(accepted_tokens),
+                "oov_reject": bool(oov_pos is not None),
             })
 
             # ---- KV cache crop ----
@@ -268,9 +500,8 @@ def drift_decode_sample(
                 accepted_tokens = accepted_tokens[:max_new_tokens]
                 break
 
-            target_pending_input = torch.tensor(
-                [[int(emitted)]], device=target_device, dtype=input_ids.dtype,
-            )
+            one_token_buf.fill_(int(emitted))
+            target_pending_input = one_token_buf
 
             # ---- EOS handling ----
             if eos_id is not None:
@@ -306,6 +537,8 @@ def drift_decode_sample(
         "stopped_eos": stopped_eos,
         "output_text": output_text,
         "verify_log": verify_log,
+        "gpu_stable_step_shapes": stable_step_shapes,
+        "gpu_graph_capture": graph_capture_note,
     }
 
 

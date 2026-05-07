@@ -92,7 +92,9 @@ REGIMES = {
 }
 
 # ── Speculative Decoding ──────────────────────────────────────────────────────
-DRAFT_LENGTHS = [4, 8, 16]
+# Qwen draft lengths above ~5 often lose acceptance quickly on consumer GPUs,
+# so keep the default sweep in the stable range and let notebooks override when needed.
+DRAFT_LENGTHS = [3, 4, 5]
 # DRAFT_LENGTHS = [8, 16]
 
 # ── Stability Seeds ───────────────────────────────────────────────────────────
@@ -119,7 +121,9 @@ DRAFT_QUANT: str | None = "fp16"    # 0.5B draft — full precision, no dequant 
 GPU_USE_SEPARATE_STREAMS = True
 GPU_PREALLOCATE_STEP_BUFFERS = True
 GPU_USE_STABLE_STEP_SHAPES = True
-GPU_TRY_CUDA_GRAPHS = False  # Experimental: auto-falls back to eager when unsupported.
+GPU_TRY_TORCH_COMPILE = False  # Optional reduce-overhead path for single-device eager inference.
+GPU_TRY_CUDA_GRAPHS = True  # Verify phase prefers CUDA Graph replay when capture conditions are met.
+GPU_REQUIRE_CUDA_GRAPHS = False  # If True, capture/replay failure raises instead of silently falling back.
 
 # ── DriftDiffuse (Phase 7/8) ──────────────────────────────────────────────────
 DRIFTER_CHECKPOINT_DIR = RESULTS_DIR / "drifter_ckpt"
@@ -147,7 +151,7 @@ DRIFTER_TRAIN = {
     "drift_lambda": 2.0,
 }
 DRIFTER_EVAL = {
-    "k_values": (8, 16),
+    "k_values": (4, 5),
     "n_denoise_steps": (3,),
     "accept_modes": ("block", "token"),
     "regimes": ("deterministic", "stochastic"),
@@ -156,8 +160,8 @@ DRIFTER_EVAL = {
 ACSD_EVAL = {
     "primary_draft": "0.5B",
     "rescue_draft": "1.5B",
-    "base_k": 8,
-    "k_choices": (4, 8, 16),
+    "base_k": 4,
+    "k_choices": (3, 4, 5),
     "regimes": ("deterministic", "stochastic"),
     "accept_window": 6,
     "k_low_threshold": 0.20,

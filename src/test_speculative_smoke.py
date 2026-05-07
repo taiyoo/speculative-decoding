@@ -82,7 +82,7 @@ def main() -> int:
     p.add_argument("--tiny", action="store_true",
                    help="Use sshleifer/tiny-gpt2-style pair (CPU-friendly correctness check).")
     p.add_argument("--max-new", type=int, default=64)
-    p.add_argument("--k", type=int, default=8)
+    p.add_argument("--k", type=int, default=4)
     p.add_argument("--full", action="store_true",
                    help="Use the real 7B target / 0.5B draft from config.py.")
     args = p.parse_args()
