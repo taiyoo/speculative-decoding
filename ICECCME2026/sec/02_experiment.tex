@@ -54,7 +54,7 @@ We test four hypotheses:
 \end{itemize}
 
 \paragraph{Hardware and software controls.}
-All experiments run on one NVIDIA RTX~4090 Laptop (24GB VRAM) with a fixed
+All experiments run on one NVIDIA RTX~4090 (24GB VRAM) with a fixed
 software stack (PyTorch, Transformers, and pinned tokenizer settings). We use
 the same runtime entry points and prompt templates for all configurations, and
 run serially to avoid cross-run contention.
@@ -68,12 +68,12 @@ run serially to avoid cross-run contention.
 \hline
 \textbf{Component} & \textbf{Specification} \\
 \hline
-GPU & NVIDIA RTX~4090 Laptop GPU \\
+GPU & NVIDIA RTX~4090 GPU \\
 GPU memory & 24 GB GDDR6 \\
 Memory bandwidth & 576 GB/s \\
 CUDA cores & 9728 \\
 Architecture & Ada Lovelace \\
-Power profile & Laptop TGP class (80--150 W range) \\
+Power profile & TGP class (80--150 W range) \\
 Software stack & PyTorch + Transformers (pinned env) \\
 \hline
 \end{tabular}
