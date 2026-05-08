@@ -14,6 +14,18 @@ Together, these results suggest that practical deployment should prioritise a
 smaller block size ($k{=}4$) and deterministic policy when latency is the
 primary objective.
 
+The key engineering implication is that, on consumer-class hardware, speedup
+is governed by a balance between acceptance and per-cycle systems overhead.
+In our runs, $B_{\text{eff}}$ grows with $k$ while speedup still declines,
+indicating that memory-traffic and loop-overhead growth outpace useful
+acceptance gains at larger block sizes.
+
+The ACSD extension adds a second practical option: adaptive control keeps
+speed close to best fixed-policy settings while providing explicit rescue and
+tail-fallback mechanisms. On the current run family, ACSD reaches
+$S{=}2.9792$ (deterministic) and $S{=}2.8981$ (stochastic), with low fallback
+activation (1.6\% and 2.2\%).
+
 From a positioning standpoint, this matters because demand for local and
 consumer-hardware LLM inference is increasing: the relevant question is no
 longer only ``how fast can we decode in data centers,'' but ``which decoding
@@ -82,9 +94,8 @@ stochastic decoding for matched settings.
 These findings yield an actionable operating recommendation for the present
 hardware budget: prefer deterministic speculative decoding at $k{=}4$, with
 0.5B draft as the default fast path and larger drafts reserved for
-quality-sensitive scenarios. Future work will
-extend this baseline with ACSD (Section~\ref{sec:acsd}) under the same
-manifests and metrics to test whether adaptive draft length and cascaded
-draft-model switching can improve tail latency without sacrificing quality
-control. ACSD remains prospective in the present manuscript and is not part of
-the quantitative results section.
+quality-sensitive scenarios. The ACSD results (Section~\ref{sec:acsd}) show
+that adaptive draft length and cascaded draft-model switching can deliver
+near-best fixed-policy speed while adding low-frequency rescue/fallback
+controls for tail robustness. This supports ACSD as a practical consumer-GPU
+policy layer rather than a replacement for the fixed-policy fast path.

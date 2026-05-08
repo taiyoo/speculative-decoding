@@ -54,10 +54,10 @@ We test four hypotheses:
 \end{itemize}
 
 \paragraph{Hardware and software controls.}
-All experiments run on one NVIDIA RTX~4090 Laptop (24GB VRAM) with a fixed software
-stack (PyTorch, Transformers, and tokenizer settings pinned by the project
-environment). We use the same runtime entry points and prompt templates for
-all configurations, and execute runs serially to avoid cross-run contention.
+All experiments run on one NVIDIA RTX~4090 Laptop (24GB VRAM) with a fixed
+software stack (PyTorch, Transformers, and pinned tokenizer settings). We use
+the same runtime entry points and prompt templates for all configurations, and
+run serially to avoid cross-run contention.
 
 \begin{table}[t]
 \centering
@@ -91,18 +91,7 @@ output semantics while reducing host-side overhead in short speculative cycles.
 Target model: Qwen2.5-3B-Instruct.
 Draft models: Qwen2.5-0.5B-Instruct and Qwen2.5-1.5B-Instruct.
 All models are same-family to minimise tokenizer mismatch and style drift.
-
-\paragraph{Task suite and manifests.}
-We evaluate on fixed manifests reused across all runs:
-\begin{itemize}
-    \item GSM8K arithmetic QA (300 samples), treated as logical reasoning
-        with strict step consistency;
-    \item MMLU subset with 5 subjects (500 samples), treated as knowledge
-        retrieval from a broad expert prior;
-    \item CNN/DailyMail summarisation (200 samples), treated as long-context
-        compression akin to operational log summarisation.
-\end{itemize}
-Each configuration therefore processes 1{,}000 prompts.
+Each configuration processes the same fixed 1{,}000-prompt manifest.
 
 \paragraph{Decoding regimes and grid.}
 Two regimes are evaluated:

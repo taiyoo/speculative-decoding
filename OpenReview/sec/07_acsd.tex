@@ -1,11 +1,11 @@
-\section{ACSD Extension}
+\section{Discussion on Adaptive Speculative Strategies Derived from Empirical Findings}
 \label{sec:acsd}
 
 The current empirical study identifies the strongest fixed-policy speedup at
 smaller block size ($k{=}4$), with net speed degrading as $k$ increases even
 when accepted block length rises. This indicates that fixed-policy drafting is
 vulnerable to acceptance/overhead imbalance and long-tail latency. This
-motivates a targeted extension:
+motivates a derived adaptive strategy guideline:
 Adaptive Cascaded Speculative Decoding (ACSD), which keeps the standard
 verifier but adapts policy online. In the latest implementation, ACSD is
 integrated into the Phase 7/8 pipeline with additional runtime-stability
@@ -35,7 +35,7 @@ adapting draft policy at sample level.
 ACSD combines four online controls while preserving standard target-side
 verification:
 \begin{enumerate}
-  \item \textbf{Adaptive $k$:} choose $k\in\{4,8,16\}$ from rolling acceptance,
+      \item \textbf{Adaptive $k$:} choose $k\in\{3,4,5\}$ from rolling acceptance,
         using larger blocks only when acceptance supports it. To avoid cold-start
         overshoot, each sample starts from base $k$ before adaptive updates.
   \item \textbf{Cascaded draft switch:} use 0.5B as a fast primary drafter and
@@ -67,9 +67,9 @@ hardware.
 \node[box, below=of start] (draft) {Draft proposes $k$ tokens\\(0.5B primary or 1.5B rescue)};
 \node[box, below=of draft] (verify) {Target verifies draft block\\compute rolling $\alpha$};
 \node[decision, below=of verify] (high) {$\alpha \ge \tau_{\text{high}}$?};
-\node[box, left=of high, xshift=-8mm] (kup) {Increase $k$\\toward 16};
+\node[box, left=of high, xshift=-8mm] (kup) {Increase $k$\\toward 5};
 \node[decision, below=of high] (low) {$\alpha \le \tau_{\text{low}}$?};
-\node[box, left=of low, xshift=-8mm] (kdown) {Reduce $k$\\toward 4};
+\node[box, left=of low, xshift=-8mm] (kdown) {Reduce $k$\\toward 3};
 \node[decision, below=of low] (rescue) {Low-accept streak\\$\ge c$ and cooldown=0?};
 \node[box, left=of rescue, xshift=-8mm] (switch) {Switch to 1.5B rescue\\for $h$ cycles};
 \node[decision, below=of rescue] (fallback) {$\alpha < \tau_{\text{AR}}$ for\\$m$ checks and length $\ge L_{\min}$?};
@@ -107,8 +107,8 @@ uses delayed target-only autoregressive fallback for pathological tails.}
 
 \subsection{Evaluation plan}
 
-The extension will be evaluated as a strict incremental study rather than a new
-protocol. We will retain:
+The extension is evaluated as a strict incremental study rather than a new
+protocol. We retain:
 \begin{itemize}
   \item the same target model and task manifests,
   \item the same deterministic and stochastic regimes,
@@ -121,10 +121,42 @@ Primary comparison points are the current best fixed-policy speculative
 setting ($k{=}4$ deterministic) and the high-$k$ settings ($k{=}16$) where
 fixed-policy decoding showed diminishing returns.
 
-\subsection{Status}
+\subsection{Empirical ACSD results}
 
-ACSD is implemented in the current code and notebook pipeline (Phase 7/8),
-including adaptive-$k$, rescue cooldown, delayed fallback, and periodic
-checkpoint writes for long runs. Quantitative ACSD headline results are still
-being finalized and are therefore reported separately from the fixed-policy
-summary table in Section~\ref{sec:results}.
+We ran ACSD on the full 1{,}000-sample manifests for both deterministic and
+stochastic regimes, using the same target model and evaluation protocol as the
+fixed-policy grid. Table~\ref{tab:acsd-headline} reports headline runtime
+metrics. Pairwise speedup $S$ is recomputed from per-sample baseline and ACSD
+latencies matched by sample identifier and task.
+
+\begin{table}[t]
+\centering
+\caption{ACSD headline results on RTX4090 (0.5B primary, 1.5B rescue,
+adaptive $k\in\{3,4,5\}$). $\Delta S_{\text{best}}$ is ACSD speedup minus the
+best fixed-policy speedup in the same regime.}
+\label{tab:acsd-headline}
+\small
+\begin{tabular}{l c c c c c c c}
+\hline
+\textbf{Regime} & $S$ & $\alpha$ & $B_{\text{eff}}$ & $R_{\text{tok}}$ & Rescue & Fallback & $\Delta S_{\text{best}}$ \\
+\hline
+deterministic & 2.9792 & 0.4207 & 1.7977 & 32.61 & 0.698 & 1.6\% & -0.0882 \\
+stochastic    & 2.8981 & 0.4071 & 1.7214 & 31.08 & 0.843 & 2.2\% & -0.0413 \\
+\hline
+\end{tabular}
+\end{table}
+
+The ACSD runtime is close to the best fixed-policy settings: $2.9\%$ below
+best fixed deterministic speedup ($3.0674$) and $1.4\%$ below best fixed
+stochastic speedup ($2.9394$). Rescue activation remains limited
+(0.698/0.843 mean rescue steps per sample) and tail fallback is rare
+(1.6\%/2.2\%), indicating that adaptive controls are used as guardrails rather
+than dominating the decode path.
+
+Quality remains near baseline in deterministic ACSD
+($\Delta$GSM8K $=+0.33$, $\Delta$MMLU $=0.00$, $\Delta$CNN/DM $=-0.02$), while
+stochastic ACSD shows moderate degradation
+($\Delta$GSM8K $=-1.00$, $\Delta$MMLU $=-0.20$, $\Delta$CNN/DM $=-0.22$).
+Aggregated adaptive-$k$ traces show most cycles at $k\in\{4,5\}$
+(deterministic: $86.9\%$; stochastic: $85.8\%$), with $k{=}3$ used as a
+recovery mode and very short steps ($k\in\{1,2\}$) mainly near completion.

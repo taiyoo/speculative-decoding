@@ -59,6 +59,26 @@ stack (PyTorch, Transformers, and tokenizer settings pinned by the project
 environment). We use the same runtime entry points and prompt templates for
 all configurations, and execute runs serially to avoid cross-run contention.
 
+\begin{table}[t]
+\centering
+\caption{Consumer-GPU hardware profile used in this study.}
+\label{tab:hardware-profile}
+\small
+\begin{tabular}{l l}
+\hline
+\textbf{Item} & \textbf{Value} \\
+\hline
+GPU class & NVIDIA RTX~4090 Laptop \\
+CUDA cores & 9{,}728 \\
+VRAM & 24 GB \\
+Memory interface & 256-bit GDDR6 \\
+Peak memory bandwidth & up to 576 GB/s \\
+Laptop TGP envelope & 80--150 W (vendor range) \\
+Host link & PCIe Gen4 \\
+\hline
+\end{tabular}
+\end{table}
+
 \paragraph{CUDA-graph runtime setup.}
 To reduce per-step launch overhead, we run a CUDA-graph-capable verify path
 with fixed step shapes per $k$, pre-allocated static device buffers for

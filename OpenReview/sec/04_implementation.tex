@@ -71,3 +71,28 @@ The same verification core is used for deterministic and stochastic modes,
 with only sampling policy changed by regime parameters.
 Each configuration writes a dedicated CSV artifact with per-sample runtime,
 token counts, and quality-relevant outputs.
+
+\paragraph{Runtime cost model for CUDA-graph path.}
+For a verify cycle, we decompose runtime into launch/scheduling and kernel
+compute components. In eager execution,
+\begin{equation}
+T_{\text{eager}} \approx N\,(t_{\text{launch}} + t_{\text{kernel}} + t_{\text{sync}}).
+\end{equation}
+With CUDA-graph replay ratio $\rho$ and one-time capture cost
+$t_{\text{capture}}$, runtime becomes
+\begin{equation}
+T_{\text{graph}} \approx t_{\text{capture}} + N\,[\rho\,(t_{\text{replay}} + t_{\text{kernel}})
++ (1-\rho)(t_{\text{launch}} + t_{\text{kernel}} + t_{\text{sync}})].
+\end{equation}
+Graph execution helps when replay is stable ($\rho \rightarrow 1$) and
+$t_{\text{replay}} \ll t_{\text{launch}}$. On short generation windows,
+this can offset speculative verification overhead by reducing repeated host
+launch costs.
+
+In our current run family, graph capture metadata remains pending with zero
+capture rate, so the main reported gains are from the optimized code path
+under eager fallback. An auxiliary short-sequence toggle benchmark
+($n{=}12$, $k{=}8$, 64 output tokens) shows +3.37\% TTFT, +1.41\% derived TPOT,
+and +1.56\% end-to-end latency for \texttt{gpu\_opt\_on} versus
+\texttt{gpu\_opt\_off}, consistent with the expectation that capture instability
+reduces the benefit of launch-optimization techniques.

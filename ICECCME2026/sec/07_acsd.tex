@@ -5,16 +5,15 @@ The current empirical study identifies the strongest fixed-policy speedup at
 smaller block size ($k{=}4$), with net speed degrading as $k$ increases even
 when accepted block length rises. This pattern indicates that fixed-policy
 drafting is vulnerable to acceptance/overhead imbalance and long-tail latency.
-Rather than presenting a separate unfinished contribution, we use this evidence
-to derive adaptive-policy design guidance: keep standard target-side
-verification while adapting control decisions online.
+We therefore design and evaluate an adaptive-policy variant that keeps standard
+target-side verification while adapting control decisions online.
 
-Advanced speculative variants such as EAGLE-3 and DFlash reduce drafting cost
-through new drafter architectures and dedicated training pipelines, often on
-very strong accelerators. Our objective is different: retain a same-family
-drafter/verifier stack deployable on consumer hardware, then recover speed and
-stability by adapting runtime policy (adaptive $k$, rescue switching, and tail
-fallback) instead of introducing a newly trained drafter.
+Advanced variants such as EAGLE-3 and DFlash reduce drafting cost through new
+drafter architectures and dedicated training pipelines, often evaluated on
+strong accelerators. Our objective is different: keep a same-family
+drafter/verifier stack that is deployable on consumer hardware, and recover
+speed and stability by runtime control (adaptive $k$, rescue switching, and
+tail fallback) rather than a newly trained drafter.
 
 \subsection{Design objective}
 
@@ -42,12 +41,11 @@ verification:
   \item \textbf{Tail guardrail:} if acceptance stays below a threshold after a
         minimum generated length for multiple consecutive checks, fall back to
         target-only autoregressive decoding for the remainder of that sample.
-  \item \textbf{Checkpointed execution:} persist partial CSV and verify-log
-        artifacts at fixed intervals so interrupted runs retain recoverable
-        progress.
+  \item \textbf{Checkpointed execution:} save partial CSV and verify logs at
+        fixed intervals so interrupted runs can resume safely.
 \end{enumerate}
 
-This design preserves verifier compatibility and allows direct comparison with
+This design preserves verifier compatibility and enables direct comparison with
 vanilla speculative decoding under the same manifests, prompts, metrics, and
 hardware.
 
@@ -64,9 +62,9 @@ hardware.
 \node[box, below=of start] (draft) {Draft proposes $k$ tokens\\(0.5B primary or 1.5B rescue)};
 \node[box, below=of draft] (verify) {Target verifies draft block\\compute rolling $\alpha$};
 \node[decision, below=of verify] (high) {$\alpha \ge \tau_{\text{high}}$?};
-\node[box, left=of high, xshift=-8mm] (kup) {Increase $k$\\toward 16};
+\node[box, left=of high, xshift=-8mm] (kup) {Increase $k$\\toward 5};
 \node[decision, below=of high] (low) {$\alpha \le \tau_{\text{low}}$?};
-\node[box, left=of low, xshift=-8mm] (kdown) {Reduce $k$\\toward 4};
+\node[box, left=of low, xshift=-8mm] (kdown) {Reduce $k$\\toward 3};
 \node[decision, below=of low] (rescue) {Low-accept streak\\$\ge c$ and cooldown=0?};
 \node[box, left=of rescue, xshift=-8mm] (switch) {Switch to 1.5B rescue\\for $h$ cycles};
 \node[decision, below=of rescue] (fallback) {$\alpha < \tau_{\text{AR}}$ for\\$m$ checks and length $\ge L_{\min}$?};
@@ -105,22 +103,31 @@ for pathological tails.}
 
 \subsection{How this guidance is used}
 
-Any future adaptive-policy experiment should be evaluated as a strict
-incremental study under the same protocol. We retain:
-\begin{itemize}
-  \item the same target model and task manifests,
-  \item the same deterministic and stochastic regimes,
-  \item the same reporting metrics ($S$, $\alpha$, $B_{\text{eff}}$, quality deltas),
-  \item the same artifact schema for per-configuration CSV outputs, with ACSD
-        metadata fields for adaptive-$k$ usage, rescue usage, and fallback rate.
-\end{itemize}
+Future adaptive-policy evaluation should remain a strict incremental study
+under the same protocol: identical target model and manifests, deterministic
+and stochastic regimes, and the same metrics ($S$, $\alpha$, $B_{\text{eff}}$,
+quality deltas) plus ACSD metadata (adaptive-$k$ usage, rescue usage, fallback
+rate). Primary comparators are the best fixed-policy point
+($k{=}4$ deterministic) and high-$k$ fixed settings ($k{=}16$).
 
-Primary comparison points are the current best fixed-policy speculative
-setting ($k{=}4$ deterministic) and the high-$k$ settings ($k{=}16$) where
-fixed-policy decoding showed diminishing returns.
+\subsection{Observed ACSD outcomes}
+
+Measured ACSD outcomes are reported in Section~\ref{sec:results}
+(Table~\ref{tab:acsd-headline}). In brief, ACSD achieves strong acceleration
+relative to autoregressive baselines in both regimes
+($S{=}2.9561$ deterministic, $S{=}2.8658$ stochastic; both $p<10^{-4}$), while
+keeping fallback rates low (1.6\% and 2.2\%). However, ACSD does not exceed
+the fastest fixed-policy setting (0.5B, $k{=}4$ deterministic at
+$S{=}3.0674$).
+
+For deployment, adaptive control improves operational resilience (limited
+fallback exposure and controlled rescue use) without retraining, but if pure
+throughput is the objective on this hardware profile, the best fixed-policy
+setting remains preferable.
 
 \subsection{Scope in this paper}
 
-This section is intentionally scoped as design guidance derived from the fixed
-RTX4090 characterization in Section~\ref{sec:results}. Quantitative claims in
-this manuscript are restricted to the measured fixed-policy configurations.
+This section combines design rationale with measured ACSD behavior under the
+same protocol. Quantitative claims are restricted to the reported fixed-policy
+and ACSD runs in this manuscript; broader generalization still requires
+additional hardware/model families.

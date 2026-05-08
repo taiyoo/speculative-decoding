@@ -81,6 +81,30 @@ Draft size has a smaller global effect than $k$ in this grid, and the 0.5B
 draft is slightly better on mean speedup (mean $S$: 2.4151 for 0.5B versus
 2.3323 for 1.5B).
 
+\begin{table*}[t]
+\centering
+\caption{Representative deterministic operating points showing the non-linear
+relationship between acceptance statistics and end-to-end speedup.}
+\label{tab:core-bottleneck}
+\small
+\begin{tabular}{l c c c c l}
+\hline
+\textbf{Draft} & $k$ & $\alpha$ & $B_{\text{eff}}$ & $S$ & \textbf{Bottleneck interpretation} \\
+\hline
+0.5B & 4  & 0.4212 & 1.66 & 3.0674 & Sweet spot: draft/verify overhead and acceptance are balanced. \\
+0.5B & 16 & 0.2539 & 3.76 & 1.8050 & Drafting overload: acceptance gain cannot cover longer draft loop. \\
+1.5B & 4  & 0.4581 & 1.81 & 2.8726 & Heavier draft increases memory traffic despite higher acceptance. \\
+1.5B & 16 & 0.2968 & 4.39 & 1.8068 & Diminishing returns: larger accepted block but lower net speedup. \\
+\hline
+\end{tabular}
+\end{table*}
+
+Table~\ref{tab:core-bottleneck} makes the central systems result explicit:
+increasing accepted block size does not guarantee higher throughput on this
+consumer GPU. As $k$ grows, verification-loop overhead and draft-side memory
+pressure rise faster than useful acceptance, so practical policy should
+prioritise per-cycle latency minimisation rather than raw acceptance increase.
+
 \subsection{RQ3: Deterministic versus stochastic regime}
 
 Deterministic decoding is faster in 5 of 6 matched draft--$k$ pairs. The
@@ -94,6 +118,13 @@ Quality deltas show different stability by task. CNN/DailyMail stays close to
 baseline but is consistently negative (from $-0.47$ to $-0.01$). MMLU
 variation is tightly bounded (from $-0.2$ to $0.2$). GSM8K is the most
 sensitive axis (from $-0.33$ to $3.67$), especially under stochastic settings.
+The regime split is substantial: GSM8K delta spread is 1.00 points in
+deterministic mode versus 3.33 points in stochastic mode, and an auxiliary
+pairwise output comparison at $k{=}4$ shows much higher stochastic
+disagreement with baseline (83.1\%) than deterministic disagreement (9.4\%).
+This supports an entropy-sensitive interpretation: high-constraint reasoning
+tasks amplify the interaction between sampling noise and speculative
+correction, while lower-entropy tasks remain more stable.
 Under a conservative quality filter ($\max |\Delta| \le 1$ across tasks),
 9 configurations remain, with best speedup at 0.5B, $k{=}4$, deterministic.
 
@@ -110,4 +141,6 @@ The current evidence supports a practical recommendation: use deterministic
 speculative decoding with a smaller block ($k{=}4$), where speedup is highest,
 and prefer the 0.5B draft for this hardware profile. Higher $k$ increases
 accepted block size but lowers net speedup in this setup, indicating that
-acceptance gains no longer offset added cycle cost.
+acceptance gains no longer offset added cycle cost. ACSD results in
+Section~\ref{sec:acsd} show that adaptive control can approach these best
+fixed-policy speeds while adding explicit rescue/fallback guardrails.

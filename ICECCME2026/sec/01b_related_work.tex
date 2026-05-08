@@ -26,20 +26,19 @@ Medusa~\cite{Cai2024Medusa} eliminates the external draft by attaching
 multiple prediction heads to the target model and verifying the resulting
 candidate tree in one forward pass. The EAGLE
 family~\cite{Li2024Eagle,Li2024Eagle2,Li2025Eagle3} keeps an external draft
-but conditions it on the target's hidden features, reporting substantial
-speedup under their respective settings. Despite these refinements, $T_{\text{draft}}$
-remains linear in $k$, which forces EAGLE-3 to a single transformer layer
-and caps achievable speedups at $\sim$$2$--$3\times$ on strong GPUs.
+but conditions it on target hidden features, reporting substantial speedups
+under their settings. Despite these refinements, $T_{\text{draft}}$ remains
+linear in $k$, forcing EAGLE-3 to a single transformer layer and capping
+reported gains at about $2$--$3\times$ on strong GPUs.
 
 \paragraph{Diffusion-based drafters.}
 Recent work attacks the linear-in-$k$ drafting bottleneck directly.
 DiffuSpec~\cite{Li2025DiffuSpec} and SpecDiff-2~\cite{Sandler2025SpecDiff2}
 explore diffusion-based parallel drafting to improve speculative-decoding
-throughput. PARD~\cite{An2025PARD} instead focuses on low-cost parallel draft
-model adaptation for accelerating LLM inference. DFlash~\cite{Chen2026dflash} closes this gap with a
-lightweight (5-layer) \emph{block-diffusion} drafter conditioned on target
-hidden features, reporting up to $5\times$ end-to-end speedup over
-autoregressive baselines on H200/B200 hardware.
+throughput. PARD~\cite{An2025PARD} focuses on low-cost parallel draft-model
+adaptation. DFlash~\cite{Chen2026dflash} uses a lightweight 5-layer
+block-diffusion drafter conditioned on target hidden features and reports up
+to $5\times$ speedup over autoregressive baselines on H200/B200 hardware.
 
 \paragraph{Precision and systems deployment.}
 Deployment-oriented inference work shows that quantization and memory traffic
@@ -53,10 +52,10 @@ throughput alone.
 
 \paragraph{Distributed and edge relevance.}
 In distributed and mobile computing settings, local inference can reduce
-round-trip latency and cloud dependency for interactive workloads. Within this
-context, speculative decoding is relevant not only to chatbot serving but also
-to edge-side language interfaces in intelligent devices, where bounded latency
-and predictable runtime behavior are as important as peak throughput.
+round-trip latency and cloud dependency for interactive workloads. In this
+context, speculative decoding is relevant beyond chatbot serving, including
+edge language interfaces where bounded latency and predictable runtime matter
+as much as peak throughput.
 
 \paragraph{Position of this work.}
 This work focuses on a controlled consumer-GPU evaluation of vanilla

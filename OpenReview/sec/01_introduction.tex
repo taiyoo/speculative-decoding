@@ -16,6 +16,11 @@ GPU, the key questions are practical: which draft size is worthwhile, which
 $k$ is optimal, and whether deterministic versus stochastic decoding changes
 the speed--quality frontier.
 
+This gap is an engineering pain point: speedups demonstrated on H100-class
+servers do not transfer directly to mobile RTX deployments, where memory
+bandwidth, launch overhead, and power-constrained duty cycle can dominate
+decode-time behavior.
+
 This direction is increasingly important because real-world LLM usage is moving
 toward consumer-class deployment constraints: local assistants, student and
 developer laptops, and privacy-sensitive workloads where cloud offload is
@@ -31,9 +36,11 @@ We address three research questions:
 \begin{enumerate}\itemsep0pt
   \item[\textbf{RQ1.}] How much end-to-end speedup does vanilla
         speculative decoding deliver against autoregressive decoding on a
-        single RTX~4090 Laptop with a 3\,B target?
+        single RTX~4090 Laptop with a 3\,B target, and how close is this to
+        a practical speedup ceiling under consumer-GPU constraints?
   \item[\textbf{RQ2.}] How do draft model size and draft length jointly
-        determine token acceptance and net latency?
+        determine token acceptance and net latency, and what does this reveal
+        about verification-loop overhead and effective GPU duty cycle?
   \item[\textbf{RQ3.}] How sensitive is the speed--quality trade-off to
         the sampling regime (deterministic vs.\ stochastic) and to task
         entropy?
@@ -58,9 +65,11 @@ This paper makes the following contributions:
   \item A statistical reporting protocol for camera-ready evaluation: paired
         bootstrap confidence intervals, one-sided significance tests for
         $S{>}1$, and corrected pairwise comparisons for winner selection.
+  \item An empirical ACSD extension run (adaptive $k\in\{3,4,5\}$ with
+        0.5B$\rightarrow$1.5B rescue drafting) that approaches best fixed-policy
+        speedup while adding explicit tail-control guardrails.
   \item A practical operating recommendation and a transparent statement of
-        current reproducibility limitations (artifact consistency across reruns),
-        together with a targeted extension plan.
+        current reproducibility limitations (artifact consistency across reruns).
 \end{enumerate}
 
 The rest of the paper is organised as follows. Section~\ref{sec:related}
@@ -68,5 +77,5 @@ reviews related work. Section~\ref{sec:protocol} defines the experimental
 protocol; Section~\ref{sec:metrics} defines metrics. Section~\ref{sec:impl}
 describes implementation and reproducibility controls. Section~\ref{sec:results}
 reports the main empirical findings. Section~\ref{sec:acsd} outlines
-our planned ACSD extension beyond fixed-policy drafting. Section~\ref{sec:discussion}
+our ACSD empirical extension beyond fixed-policy drafting. Section~\ref{sec:discussion}
 discusses implications, limitations, and conclusion.

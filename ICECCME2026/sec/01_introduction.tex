@@ -16,20 +16,10 @@ GPU, the key questions are practical: which draft size is worthwhile, which
 $k$ is optimal, and whether deterministic versus stochastic decoding changes
 the speed--quality frontier.
 
-This direction is increasingly important because real-world LLM usage is moving
-toward consumer-class deployment constraints: local assistants, student and
-developer laptops, and privacy-sensitive workloads where cloud offload is
-undesirable or expensive. In this setting, efficiency is not only a cost
-optimization problem; it is an accessibility and feasibility requirement.
-Inference methods that are robust on consumer hardware can widen practical LLM
-adoption beyond data-center environments.
-
-Beyond pure NLP serving, this deployment constraint is also relevant to
-mechatronic and cyber-physical workflows that require low-latency local
-language interaction, including edge-side instruction parsing, operator
-assistance, and offline diagnostics. We therefore position this paper as a
-hardware-aware characterization study for local intelligent systems, not as a
-new decoding algorithm.
+This direction matters for privacy-sensitive and latency-critical local use,
+including laptop assistants and edge-side decision-support workflows. We
+therefore position this paper as a hardware-aware characterization study,
+rather than a new decoding algorithm.
 
 \subsection{Research questions}
 \label{sec:rqs}
@@ -69,15 +59,15 @@ This paper makes the following contributions:
         $S{>}1$, and corrected pairwise comparisons for winner selection.
   \item A practical operating recommendation and a transparent statement of
         current reproducibility limitations (artifact consistency across reruns),
-        together with adaptive-policy design guidance derived from these
-        fixed-policy observations.
+        together with adaptive-policy design guidance and an ACSD
+        quantitative validation on the same manifests.
 \end{enumerate}
 
-The rest of the paper is organised as follows. Section~\ref{sec:related}
+The rest of the paper is organized as follows. Section~\ref{sec:related}
 reviews related work. Section~\ref{sec:protocol} defines the experimental
 protocol; Section~\ref{sec:metrics} defines metrics. Section~\ref{sec:impl}
 describes implementation and reproducibility controls. Section~\ref{sec:results}
 reports the main empirical findings. Section~\ref{sec:acsd} outlines
-an adaptive speculative-strategy discussion derived from the observed
-$k$-efficiency inflection. Section~\ref{sec:discussion}
+an adaptive speculative-strategy framework and its observed runtime behavior.
+Section~\ref{sec:discussion}
 discusses implications, limitations, and conclusion.

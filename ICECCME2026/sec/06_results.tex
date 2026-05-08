@@ -59,14 +59,13 @@ configurations.}
 
 \subsection{RQ1: Does speculative decoding accelerate inference?}
 
-All 12 speculative configurations exceed $S{=}1$ in the RTX4090 CUDA-graph
-run family, with observed speedups from $1.7773$ to $3.0674$. The best
-configuration is 0.5B with $k{=}4$ in deterministic mode. Baseline context
-from regime-matched baseline files shows mean latencies of 11.41s
-(deterministic) and 11.65s (stochastic) per sample, so the measured
-speculative gains are substantial in wall-clock terms for fixed workload and
-prompts. Paired bootstrap intervals and one-sided tests confirm that all
-configurations are significantly faster than autoregressive decoding
+Across the RTX4090 CUDA-graph run family, all 12 speculative configurations
+exceed $S{=}1$, with speedups from $1.7773$ to $3.0674$. The best setting is
+0.5B with $k{=}4$ in deterministic mode. Regime-matched baseline files report
+mean latencies of 11.41s (deterministic) and 11.65s (stochastic) per sample,
+so the wall-clock gains are substantial for this fixed workload and prompt
+set. Paired bootstrap intervals and one-sided tests show that every
+configuration is faster than autoregressive decoding
 ($p_S<10^{-4}$ throughout, Table~\ref{tab:headline}).
 
 \subsection{RQ2: How do draft length and draft size affect acceptance and speed?}
@@ -127,10 +126,54 @@ prioritize lower per-cycle runtime over maximal accepted-block growth.
 Implementation details for the CUDA-graph-capable runtime setup are described
 in Section~\ref{sec:protocol}.
 
+\subsection{ACSD quantitative evaluation}
+
+We next evaluate the Adaptive Cascaded Speculative Decoding (ACSD) controller
+under the same 1000-sample deterministic/stochastic manifests
+(GSM8K 300, MMLU 500, CNN/DailyMail 200). Speedup is computed as paired
+ratio-of-means against regime-matched autoregressive baselines using the same
+bootstrap protocol as Table~\ref{tab:headline}.
+
+\begin{table*}[t]
+\centering
+\caption{ACSD results on RTX4090 CUDA-graph run family, with quality deltas
+relative to regime-matched baseline quality anchors inferred from the
+fixed-policy summary table.}
+\label{tab:acsd-headline}
+\small
+\begin{tabular}{l c c c c c c}
+\hline
+\textbf{Regime} & $S$ (95\% CI) & $\alpha$ & $B_{\text{eff}}$ & $R_{\text{tok}}$ & Rescue/Fallback & $\max |\Delta Q|$ \\
+\hline
+ACSD, det   & 2.9561 [2.9205, 2.9916] & 0.4207 & 1.7977 & 32.6056 & 17.0\% / 1.6\% & 0.33 \\
+ACSD, stoch & 2.8658 [2.8305, 2.9007] & 0.4071 & 1.7214 & 31.0750 & 20.0\% / 2.2\% & 1.00 \\
+\hline
+\end{tabular}
+\end{table*}
+
+Both ACSD regimes remain strongly faster than autoregressive decoding
+($p<10^{-4}$ for both), but do not exceed the best fixed-policy point
+(0.5B, $k{=}4$): ACSD deterministic is lower by 0.1113 speedup units
+($\approx$3.6\%), and ACSD stochastic by 0.0736 ($\approx$2.5\%).
+Operationally, fallback use remains low (1.6\% deterministic,
+2.2\% stochastic), indicating that tail guardrails are only occasionally
+invoked, while rescue drafting is used in 17.0\% and 20.0\% of samples.
+Task-level ACSD quality deltas are (0.33, 0.00, -0.02) for deterministic and
+(-1.00, -0.20, -0.22) for stochastic on
+(GSM8K, MMLU, CNN/DailyMail), respectively.
+
+Aggregated adaptive-$k$ usage shows that ACSD spends most accepted blocks at
+larger settings near the sweet spot boundary: deterministic run share is
+$k{=}4$ (40.74\%) and $k{=}5$ (46.18\%), with only 1.73\% at $k\in\{1,2\}$;
+stochastic run share is $k{=}4$ (43.17\%) and $k{=}5$ (42.66\%), with 1.75\%
+at $k\in\{1,2\}$. This pattern supports the controller intent of staying near
+high-throughput operating points while retaining low-$k$ escape routes.
+
 \subsection{Summary of empirical operating point}
 
 The current evidence supports a practical recommendation: use deterministic
-speculative decoding with a smaller block ($k{=}4$), where speedup is highest,
-and prefer the 0.5B draft for this hardware profile. Higher $k$ increases
-accepted block size but lowers net speedup in this setup, indicating that
-acceptance gains no longer offset added cycle cost.
+speculative decoding with a smaller fixed block ($k{=}4$) when peak throughput
+is the primary target, and prefer the 0.5B draft for this hardware profile.
+ACSD adds robustness-oriented control with strong baseline-relative speedups
+and low fallback rates, but fixed $k{=}4$ remains the fastest observed operating
+point in this run family.

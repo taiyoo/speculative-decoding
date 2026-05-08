@@ -10,21 +10,20 @@ family, with the strongest performance at $k{=}4$ and the weakest at
 $k{=}16$. Third, deterministic decoding outperforms stochastic decoding in 5 of
 6 matched draft--$k$ pairs.
 
+The measured ACSD extension follows the same direction: it remains strongly
+faster than autoregressive decoding in both regimes, but does not exceed the
+best fixed-policy throughput point (0.5B, $k{=}4$, deterministic). ACSD
+therefore appears most useful as a robustness-oriented control layer rather
+than a replacement for the fastest fixed policy in this hardware setting.
+
 Together, these results suggest that practical deployment should prioritise a
 smaller block size ($k{=}4$) and deterministic policy when latency is the
 primary objective.
 
-From a positioning standpoint, this matters because demand for local and
-consumer-hardware LLM inference is increasing: the relevant question is no
-longer only ``how fast can we decode in data centers,'' but ``which decoding
-policy remains efficient and stable on constrained personal hardware.''
-
-We therefore present hardware-profiled operating points rather than universal
-defaults.
-
-This framing is relevant to broader ICECCME-style engineering settings,
-including edge devices and local decision-support pipelines where predictable
-latency is a system-level requirement rather than only an NLP benchmark target.
+Demand for local and consumer-hardware LLM inference is increasing, so the key
+question is not only peak data-center speed, but which policy remains stable
+on constrained personal hardware. We therefore report hardware-profiled
+operating points rather than universal defaults. 
 
 \subsection{Draft-size implications}
 
@@ -50,12 +49,6 @@ intervals and corrected pairwise tests from a coherent artifact family.
 \section{Threats to validity}
 \label{sec:threats}
 
-\textbf{Artifact consistency across reruns.}
-Some baseline files were regenerated after initial summary artifacts were
-produced, which can create mismatches between raw baseline totals and
-summary-implied baselines. To mitigate this, we use one coherent summary source
-for comparative claims and report this limitation explicitly.
-
 \textbf{Single-hardware scope.}
 All results are from one RTX~4090 Laptop. Relative rankings are informative for this
 deployment class, but absolute speedups may shift on other GPU generations.
@@ -77,18 +70,20 @@ particular is an incomplete summarisation quality proxy.
 
 This paper provides a controlled consumer-GPU evaluation of speculative
 decoding with a Qwen2.5-3B target and same-family drafts. The current evidence
-shows consistent acceleration across all tested configurations, with best
-observed performance at 0.5B, $k{=}4$, deterministic
+shows consistent acceleration across all tested fixed and adaptive
+configurations, with best observed performance at 0.5B, $k{=}4$, deterministic
 ($S{=}3.0674$). We find that increasing $k$ from 4 to 8 and 16 reduces net
 speedup in this setup, and that deterministic decoding is generally faster than
-stochastic decoding for matched settings.
+stochastic decoding for matched settings. ACSD also delivers significant
+speedup over autoregressive baselines (deterministic $S{=}2.9561$, stochastic
+$S{=}2.8658$) with low fallback rates, but remains below the best fixed-policy
+speedup.
 
 These findings yield an actionable operating recommendation for the present
 hardware budget: prefer deterministic speculative decoding at $k{=}4$, with
 0.5B draft as the default fast path and larger drafts reserved for
-quality-sensitive scenarios. Future work will
-use the adaptive-strategy guidance in Section~\ref{sec:acsd} under the same
-manifests and metrics to test whether adaptive draft length and cascaded
-draft-model switching can improve tail latency without sacrificing quality
-control. The quantitative claims in this manuscript remain restricted to the
-measured fixed-policy configurations.
+quality-sensitive scenarios. ACSD can be enabled when runtime resilience and
+tail control are prioritized over absolute peak throughput. Future work will
+evaluate broader hardware/model families and tune adaptive thresholds to test
+whether ACSD can close the remaining gap to the fixed $k{=}4$ optimum while
+preserving quality control.
