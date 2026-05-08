@@ -36,7 +36,7 @@ We address three research questions:
 \begin{enumerate}\itemsep0pt
   \item[\textbf{RQ1.}] How much end-to-end speedup does vanilla
         speculative decoding deliver against autoregressive decoding on a
-        single RTX~4090 Laptop with a 3\,B target, and how close is this to
+        single RTX~4090 with a 3\,B target, and how close is this to
         a practical speedup ceiling under consumer-GPU constraints?
   \item[\textbf{RQ2.}] How do draft model size and draft length jointly
         determine token acceptance and net latency, and what does this reveal
@@ -68,8 +68,6 @@ This paper makes the following contributions:
   \item An empirical ACSD extension run (adaptive $k\in\{3,4,5\}$ with
         0.5B$\rightarrow$1.5B rescue drafting) that approaches best fixed-policy
         speedup while adding explicit tail-control guardrails.
-  \item A practical operating recommendation and a transparent statement of
-        current reproducibility limitations (artifact consistency across reruns).
 \end{enumerate}
 
 The rest of the paper is organised as follows. Section~\ref{sec:related}

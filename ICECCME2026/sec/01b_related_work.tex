@@ -40,6 +40,15 @@ adaptation. DFlash~\cite{Chen2026dflash} uses a lightweight 5-layer
 block-diffusion drafter conditioned on target hidden features and reports up
 to $5\times$ speedup over autoregressive baselines on H200/B200 hardware.
 
+\paragraph{Cascaded speculative control.}
+Recent cascaded work includes CAS-Spec~\cite{Wang2025CASSpec}, which focuses
+on self-speculation routing and sparsity-aware intra-model control, and
+Speculative Cascades, which combines model-cascades with speculative decoding
+in a hybrid serving architecture. In
+contrast, ACSD here is a training-free online controller between independent
+same-family draft models (0.5B and 1.5B), designed for consumer-hardware
+runtime stability rather than new drafter training or routing-tree learning.
+
 \paragraph{Precision and systems deployment.}
 Deployment-oriented inference work shows that quantization and memory traffic
 are central to practical throughput gains on constrained hardware.
@@ -64,5 +73,5 @@ speculative decoding with same-family model pairing (Qwen2.5-3B target,
 competing with data-center throughput claims, we characterise practical
 operating points on a single RTX~4090, including acceptance dynamics,
 quality drift, and runtime-sensitive configuration choices. We then use these
-results to motivate a future adaptive cascaded speculative decoding (ACSD)
-extension aimed at reducing long-tail latency under the same hardware budget.
+results to evaluate adaptive cascaded speculative decoding (ACSD) as a
+runtime-stability extension under the same hardware budget.

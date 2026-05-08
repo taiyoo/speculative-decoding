@@ -93,6 +93,14 @@ Draft models: Qwen2.5-0.5B-Instruct and Qwen2.5-1.5B-Instruct.
 All models are same-family to minimise tokenizer mismatch and style drift.
 Each configuration processes the same fixed 1{,}000-prompt manifest.
 
+\paragraph{Task-entropy interpretation.}
+We treat the three tasks as distinct decoding-entropy regimes to interpret
+acceptance behavior: GSM8K is lower-entropy chain reasoning with concentrated
+next-token mass; MMLU is medium-entropy constrained QA; CNN/DailyMail is
+higher-entropy open-ended summarization. This framing is used only for
+interpretation of acceptance and quality trends, not as an additional
+optimization objective.
+
 \paragraph{Decoding regimes and grid.}
 Two regimes are evaluated:
 \begin{itemize}

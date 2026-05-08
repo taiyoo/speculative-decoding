@@ -54,27 +54,33 @@ We test four hypotheses:
 \end{itemize}
 
 \paragraph{Hardware and software controls.}
-All experiments run on one NVIDIA RTX~4090 Laptop (24GB VRAM) with a fixed software
+All experiments run on one ASUS TUF-RTX4090-24G-OG-GAMING (NVIDIA RTX~4090,
+24GB GDDR6X) with a fixed software
 stack (PyTorch, Transformers, and tokenizer settings pinned by the project
 environment). We use the same runtime entry points and prompt templates for
 all configurations, and execute runs serially to avoid cross-run contention.
 
 \begin{table}[t]
 \centering
-\caption{Consumer-GPU hardware profile used in this study.}
+\caption{Consumer-GPU hardware profile used in this study (ASUS TUF-RTX4090-24G-OG-GAMING).}
 \label{tab:hardware-profile}
 \small
 \begin{tabular}{l l}
 \hline
 \textbf{Item} & \textbf{Value} \\
 \hline
-GPU class & NVIDIA RTX~4090 Laptop \\
-CUDA cores & 9{,}728 \\
-VRAM & 24 GB \\
-Memory interface & 256-bit GDDR6 \\
-Peak memory bandwidth & up to 576 GB/s \\
-Laptop TGP envelope & 80--150 W (vendor range) \\
-Host link & PCIe Gen4 \\
+GPU model & NVIDIA GeForce RTX~4090 \\
+Board model & ASUS TUF-RTX4090-24G-OG-GAMING \\
+CUDA cores & 16{,}384 \\
+Video memory & 24GB GDDR6X \\
+Memory interface & 384-bit \\
+Memory speed & 21 Gbps \\
+Bus standard & PCI Express 4.0 \\
+Max digital resolution & 7680 \(\times\) 4320 \\
+Dimensions & 325.9 \(\times\) 140.2 \(\times\) 62.8 mm \\
+Power connector & 1 \(\times\) 16-pin \\
+Recommended PSU & 850W \\
+Slot & 3.2-slot \\
 \hline
 \end{tabular}
 \end{table}

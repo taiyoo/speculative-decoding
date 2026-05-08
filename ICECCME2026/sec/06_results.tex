@@ -113,10 +113,19 @@ averages $0.0568$ across the six matched pairs; the single exception is
 deployment preference for deterministic regime when latency is primary and
 output diversity is not required.
 
+At systems level, stochastic decoding adds sampling and rejection-check
+overheads that are weakly amortized on this hardware profile. With large
+distribution processing and limited memory bandwidth (576 GB/s), these costs
+can offset speculative parallelism gains, consistent with the deterministic
+advantage.
+
 Quality stability differs by task. CNN/DailyMail remains close to baseline but
 consistently negative ($-0.47$ to $-0.01$). MMLU shifts are small
 ($-0.2$ to $0.2$). GSM8K shows the largest spread ($-0.33$ to $3.67$),
 especially under stochastic decoding.
+Under our entropy-oriented interpretation, CNN/DailyMail is the highest-entropy
+setting in this suite, so acceptance mismatch and quality drift are more likely
+than in constrained QA tasks.
 Under a conservative quality filter ($\max |\Delta| \le 1$ across tasks),
 9 configurations remain, with best speedup at 0.5B, $k{=}4$, deterministic.
 
@@ -168,6 +177,32 @@ $k{=}4$ (40.74\%) and $k{=}5$ (46.18\%), with only 1.73\% at $k\in\{1,2\}$;
 stochastic run share is $k{=}4$ (43.17\%) and $k{=}5$ (42.66\%), with 1.75\%
 at $k\in\{1,2\}$. This pattern supports the controller intent of staying near
 high-throughput operating points while retaining low-$k$ escape routes.
+
+\begin{table}[t]
+\centering
+\caption{Latency-tail comparison (seconds): fixed 0.5B $k{=}4$, ACSD, and
+high-$k$ 0.5B $k{=}16$.}
+\label{tab:acsd-tail}
+\small
+\begin{tabular}{l l c c c}
+\hline
+\textbf{Regime} & \textbf{Config} & Mean & P90 & P99 \\
+\hline
+det & 0.5B $k{=}4$ & 3.721 & 7.423 & 8.153 \\
+det & ACSD        & 3.861 & 7.715 & 8.300 \\
+det & 0.5B $k{=}16$ & 6.323 & 12.688 & 15.654 \\
+stoch & 0.5B $k{=}4$ & 3.963 & 7.855 & 8.655 \\
+stoch & ACSD        & 4.065 & 8.163 & 8.962 \\
+stoch & 0.5B $k{=}16$ & 6.406 & 13.088 & 16.260 \\
+\hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:acsd-tail} clarifies the trade-off: ACSD mean latency is
+2.6--3.8\% above fixed $k{=}4$, with slightly higher P99
+(+1.8\% deterministic, +3.6\% stochastic), yet far below high-$k$ tails
+(about 45--47\% lower P99 than $k{=}16$). This supports ACSD as a guardrail,
+not a peak-throughput optimizer.
 
 \subsection{Summary of empirical operating point}
 

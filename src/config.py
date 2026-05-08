@@ -110,7 +110,7 @@ QUANT_MODE = "int8"  # was "fp8" — switched because optimum-quanto+torchao cra
 
 # Per-model overrides. Set either to None to inherit QUANT_MODE.
 #
-# Recommended on a 24 GB consumer GPU (e.g. RTX 5090 laptop):
+# Recommended on a 24 GB consumer GPU (e.g. RTX 5090 laptop, or RTX 4090 desktop ):
 #     TARGET_QUANT = "int8"   # 7B model, dominates wall-clock cost
 #     DRAFT_QUANT  = "fp16"   # small model on the critical path; avoid bnb dequant tax
 TARGET_QUANT: str | None = "fp16"   # 3B target 

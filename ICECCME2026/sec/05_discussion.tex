@@ -13,8 +13,9 @@ $k{=}16$. Third, deterministic decoding outperforms stochastic decoding in 5 of
 The measured ACSD extension follows the same direction: it remains strongly
 faster than autoregressive decoding in both regimes, but does not exceed the
 best fixed-policy throughput point (0.5B, $k{=}4$, deterministic). ACSD
-therefore appears most useful as a robustness-oriented control layer rather
-than a replacement for the fastest fixed policy in this hardware setting.
+therefore appears most useful as a robustness-oriented control layer: mean
+latency is slightly above fixed $k{=}4$, but tail behavior remains close to
+that point and well below high-$k$ collapse.
 
 Together, these results suggest that practical deployment should prioritise a
 smaller block size ($k{=}4$) and deterministic policy when latency is the
@@ -83,7 +84,7 @@ These findings yield an actionable operating recommendation for the present
 hardware budget: prefer deterministic speculative decoding at $k{=}4$, with
 0.5B draft as the default fast path and larger drafts reserved for
 quality-sensitive scenarios. ACSD can be enabled when runtime resilience and
-tail control are prioritized over absolute peak throughput. Future work will
+tail protection are prioritized over absolute peak throughput. Future work will
 evaluate broader hardware/model families and tune adaptive thresholds to test
 whether ACSD can close the remaining gap to the fixed $k{=}4$ optimum while
 preserving quality control.
