@@ -1,0 +1,94 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Main empirical takeaways}
+
+Three findings are consistent in the current run family. First, speculative decoding
+provides consistent acceleration across all tested configurations
+($S>1$ throughout). Second, speedup declines as $k$ increases in this run
+family, with the strongest performance at $k{=}4$ and the weakest at
+$k{=}16$. Third, deterministic decoding outperforms stochastic decoding in 5 of
+6 matched draft--$k$ pairs.
+
+Together, these results suggest that practical deployment should prioritise a
+smaller block size ($k{=}4$) and deterministic policy when latency is the
+primary objective.
+
+From a positioning standpoint, this matters because demand for local and
+consumer-hardware LLM inference is increasing: the relevant question is no
+longer only ``how fast can we decode in data centers,'' but ``which decoding
+policy remains efficient and stable on constrained personal hardware.''
+
+We therefore present hardware-profiled operating points rather than universal
+defaults.
+
+This framing is relevant to broader ICECCME-style engineering settings,
+including edge devices and local decision-support pipelines where predictable
+latency is a system-level requirement rather than only an NLP benchmark target.
+
+\subsection{Draft-size implications}
+
+The 0.5B draft produces the best single configuration
+(0.5B, $k{=}4$, deterministic), and also has a slightly higher mean speedup
+than 1.5B across the full grid in this run family. This indicates that
+draft-size selection is hardware- and budget-sensitive: the smaller draft can
+win on end-to-end speed even when the larger draft improves acceptance.
+
+\subsection{Speed versus quality}
+
+Quality drift is task-dependent. CNN/DailyMail and MMLU remain relatively
+stable across settings, while GSM8K is more variable, especially under
+stochastic decoding. A conservative filter
+($\max |\Delta| \le 1$ across all three tasks) retains a small subset of
+configurations, among which 1.5B, $k{=}8$, deterministic remains best.
+This supports a practical policy: use deterministic mode with $k{=}4$ for
+production-like latency targets, and treat stochastic settings as
+quality-sensitive configurations requiring additional calibration.
+Final winner claims should be interpreted together with paired confidence
+intervals and corrected pairwise tests from a coherent artifact family.
+
+\section{Threats to validity}
+\label{sec:threats}
+
+\textbf{Artifact consistency across reruns.}
+Some baseline files were regenerated after initial summary artifacts were
+produced, which can create mismatches between raw baseline totals and
+summary-implied baselines. To mitigate this, we use one coherent summary source
+for comparative claims and report this limitation explicitly.
+
+\textbf{Single-hardware scope.}
+All results are from one RTX~4090 Laptop. Relative rankings are informative for this
+deployment class, but absolute speedups may shift on other GPU generations.
+In this run family, CUDA-graph metadata indicates pending/zero capture rate,
+so reported gains reflect the same code path under fallback execution rather
+than successful graph replay.
+
+\textbf{Model-family scope.} All reported runs use same-family pairings
+(Qwen2.5 target and drafts). Cross-family pairings may therefore exhibit
+materially different acceptance and quality behavior.
+
+\textbf{Evaluation breadth.}
+The benchmark set spans math reasoning, knowledge QA, and summarisation, but
+does not exhaust safety, factuality, or long-context behaviour. ROUGE-L in
+particular is an incomplete summarisation quality proxy.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+This paper provides a controlled consumer-GPU evaluation of speculative
+decoding with a Qwen2.5-3B target and same-family drafts. The current evidence
+shows consistent acceleration across all tested configurations, with best
+observed performance at 0.5B, $k{=}4$, deterministic
+($S{=}3.0674$). We find that increasing $k$ from 4 to 8 and 16 reduces net
+speedup in this setup, and that deterministic decoding is generally faster than
+stochastic decoding for matched settings.
+
+These findings yield an actionable operating recommendation for the present
+hardware budget: prefer deterministic speculative decoding at $k{=}4$, with
+0.5B draft as the default fast path and larger drafts reserved for
+quality-sensitive scenarios. Future work will
+use the adaptive-strategy guidance in Section~\ref{sec:acsd} under the same
+manifests and metrics to test whether adaptive draft length and cascaded
+draft-model switching can improve tail latency without sacrificing quality
+control. The quantitative claims in this manuscript remain restricted to the
+measured fixed-policy configurations.

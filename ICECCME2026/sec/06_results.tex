@@ -1,0 +1,136 @@
+\section{Results}
+\label{sec:results}
+
+This section reports fixed-policy speculative-decoding outcomes from the
+RTX4090 CUDA-graph run family and regime-matched deterministic/stochastic
+baselines. Headline values are summarized in \textit{all\_configs\_summary.csv}.
+We emphasize paired comparative metrics
+($S$, $\alpha$, $B_{\text{eff}}$) and task deltas to evaluate the
+speed--quality tradeoff.
+
+\begin{table*}[t]
+\centering
+\caption{RTX4090 CUDA-graph run family summary (Qwen2.5-3B target).
+$S$ is ratio-of-means paired speedup against regime-matched baselines.
+CI$_S$ is the paired bootstrap 95\% interval (10k resamples over matched
+samples); $p_S$ is one-sided significance for $H_0\!:\,S\le 1$.
+$\alpha$ is token-level acceptance; $B_{\text{eff}}$ is accepted tokens per
+verification cycle.}
+\label{tab:headline}
+\small
+\begin{tabular}{l c c c c c c c c}
+\hline
+\textbf{Config} & $S$ & CI$_S$ & $p_S$ & $\alpha$ & $B_{\text{eff}}$ & $\Delta$GSM8K & $\Delta$MMLU & $\Delta$CNN/DM \\
+\hline
+baseline, det        & 1.0000 & -- & -- & -- & -- & -- & -- & -- \\
+baseline, stoch      & 1.0000 & -- & -- & -- & -- & -- & -- & -- \\
+0.5B, $k{=}4$, det   & \textbf{3.0674} & [3.029, 3.104] & $<10^{-4}$ & 0.4212 & 1.66 & 0.33 & 0.00 & -0.02 \\
+0.5B, $k{=}4$, stoch & 2.9394 & [2.900, 2.979] & $<10^{-4}$ & 0.4080 & 1.61 & 1.67 & -0.20 & -0.03 \\
+0.5B, $k{=}8$, det   & 2.4542 & [2.408, 2.500] & $<10^{-4}$ & 0.3515 & 2.72 & 0.33 & 0.00 & -0.05 \\
+0.5B, $k{=}8$, stoch & 2.4063 & [2.359, 2.453] & $<10^{-4}$ & 0.3444 & 2.67 & 1.00 & 0.00 & -0.38 \\
+0.5B, $k{=}16$, det  & 1.8050 & [1.751, 1.859] & $<10^{-4}$ & 0.2539 & 3.76 & 0.33 & 0.00 & -0.01 \\
+0.5B, $k{=}16$, stoch& 1.8185 & [1.764, 1.873] & $<10^{-4}$ & 0.2516 & 3.73 & 0.34 & -0.20 & -0.19 \\
+1.5B, $k{=}4$, det   & 2.8726 & [2.839, 2.905] & $<10^{-4}$ & 0.4581 & 1.81 & -0.33 & 0.00 & -0.03 \\
+1.5B, $k{=}4$, stoch & 2.7860 & [2.754, 2.819] & $<10^{-4}$ & 0.4421 & 1.75 & 1.67 & 0.00 & -0.34 \\
+1.5B, $k{=}8$, det   & 2.4066 & [2.366, 2.447] & $<10^{-4}$ & 0.3929 & 3.04 & 0.00 & 0.00 & -0.06 \\
+1.5B, $k{=}8$, stoch & 2.3444 & [2.304, 2.385] & $<10^{-4}$ & 0.3822 & 2.96 & 3.67 & 0.20 & -0.47 \\
+1.5B, $k{=}16$, det  & 1.8068 & [1.761, 1.853] & $<10^{-4}$ & 0.2968 & 4.39 & 0.67 & 0.00 & -0.03 \\
+1.5B, $k{=}16$, stoch& 1.7773 & [1.732, 1.825] & $<10^{-4}$ & 0.2928 & 4.36 & 1.00 & -0.20 & -0.36 \\
+\hline
+\end{tabular}
+\end{table*}
+
+Figure~\ref{fig:specdec-vs-baseline-metrics} complements
+Table~\ref{tab:headline} with a visual baseline-relative view across all
+configurations, including speedup, latency/throughput deltas, token-timing
+deltas, and acceptance dynamics.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{figures/specdec_configs_vs_baseline_metrics.pdf}
+\caption{Speculative-decoding metrics for all RTX4090 configurations relative
+to regime-matched baseline. Top-left: paired speedup $S$ (baseline at
+$S{=}1$). Top-right: mean latency reduction and throughput gain percentages vs
+baseline. Bottom-left: TTFT and TPOT percentage deltas vs baseline. Bottom-right:
+acceptance dynamics ($\alpha$ and $B_{\text{eff}}$) across the same
+configurations.}
+\label{fig:specdec-vs-baseline-metrics}
+\end{figure*}
+
+\subsection{RQ1: Does speculative decoding accelerate inference?}
+
+All 12 speculative configurations exceed $S{=}1$ in the RTX4090 CUDA-graph
+run family, with observed speedups from $1.7773$ to $3.0674$. The best
+configuration is 0.5B with $k{=}4$ in deterministic mode. Baseline context
+from regime-matched baseline files shows mean latencies of 11.41s
+(deterministic) and 11.65s (stochastic) per sample, so the measured
+speculative gains are substantial in wall-clock terms for fixed workload and
+prompts. Paired bootstrap intervals and one-sided tests confirm that all
+configurations are significantly faster than autoregressive decoding
+($p_S<10^{-4}$ throughout, Table~\ref{tab:headline}).
+
+\subsection{RQ2: How do draft length and draft size affect acceptance and speed?}
+
+Draft length shows a monotonic decline in speedup over this grid. Averaging
+over drafts and regimes, mean speedup is highest at $k{=}4$ ($2.9164$), then
+$k{=}8$ ($2.4029$), then $k{=}16$ ($1.8019$). This is consistent with acceptance
+dynamics: as $k$ increases, $B_{\text{eff}}$ increases (1.7075 $\rightarrow$
+2.8475 $\rightarrow$ 4.0600) but $\alpha$ decreases (0.4324 $\rightarrow$
+0.3678 $\rightarrow$ 0.2738), and the extra draft/verify cost dominates net
+benefit.
+
+Draft size has a smaller global effect than $k$ in this grid, and the 0.5B
+draft is slightly better on mean speedup (mean $S$: 2.4151 for 0.5B versus
+2.3323 for 1.5B).
+
+Table~\ref{tab:bottleneck} summarizes the deterministic endpoints of this
+non-linear trend and highlights the systems-level interpretation: higher
+$B_{\text{eff}}$ does not guarantee higher $S$ once per-cycle drafting and
+verification overhead dominate.
+
+\begin{table}[t]
+\centering
+\caption{Deterministic bottleneck analysis at low vs. high $k$.}
+\label{tab:bottleneck}
+\small
+\begin{tabular}{l c c c c}
+\hline
+\textbf{Config} & $\alpha$ & $B_{\text{eff}}$ & $S$ & \textbf{Interpretation} \\
+\hline
+0.5B, $k{=}4$  & 0.4212 & 1.66 & 3.0674 & Sweet spot \\
+0.5B, $k{=}16$ & 0.2539 & 3.76 & 1.8050 & Drafting overload \\
+1.5B, $k{=}4$  & 0.4581 & 1.81 & 2.8726 & Memory pressure \\
+1.5B, $k{=}16$ & 0.2968 & 4.39 & 1.8068 & Diminishing returns \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{RQ3: Deterministic versus stochastic regime}
+
+Deterministic decoding is faster in 5 of 6 matched draft--$k$ pairs. The
+deterministic advantage ranges from $-0.0135$ to $0.1280$ in absolute $S$ and
+averages $0.0568$ across the six matched pairs; the single exception is
+0.5B, $k{=}16$, where stochastic is slightly faster. This still supports a
+deployment preference for deterministic regime when latency is primary and
+output diversity is not required.
+
+Quality stability differs by task. CNN/DailyMail remains close to baseline but
+consistently negative ($-0.47$ to $-0.01$). MMLU shifts are small
+($-0.2$ to $0.2$). GSM8K shows the largest spread ($-0.33$ to $3.67$),
+especially under stochastic decoding.
+Under a conservative quality filter ($\max |\Delta| \le 1$ across tasks),
+9 configurations remain, with best speedup at 0.5B, $k{=}4$, deterministic.
+
+The resulting design guideline is clear: when selecting $k$ on consumer GPUs,
+prioritize lower per-cycle runtime over maximal accepted-block growth.
+
+Implementation details for the CUDA-graph-capable runtime setup are described
+in Section~\ref{sec:protocol}.
+
+\subsection{Summary of empirical operating point}
+
+The current evidence supports a practical recommendation: use deterministic
+speculative decoding with a smaller block ($k{=}4$), where speedup is highest,
+and prefer the 0.5B draft for this hardware profile. Higher $k$ increases
+accepted block size but lowers net speedup in this setup, indicating that
+acceptance gains no longer offset added cycle cost.

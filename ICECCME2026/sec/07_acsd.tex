@@ -1,0 +1,126 @@
+\section{Discussion on Adaptive Speculative Strategies Derived from Empirical Findings}
+\label{sec:acsd}
+
+The current empirical study identifies the strongest fixed-policy speedup at
+smaller block size ($k{=}4$), with net speed degrading as $k$ increases even
+when accepted block length rises. This pattern indicates that fixed-policy
+drafting is vulnerable to acceptance/overhead imbalance and long-tail latency.
+Rather than presenting a separate unfinished contribution, we use this evidence
+to derive adaptive-policy design guidance: keep standard target-side
+verification while adapting control decisions online.
+
+Advanced speculative variants such as EAGLE-3 and DFlash reduce drafting cost
+through new drafter architectures and dedicated training pipelines, often on
+very strong accelerators. Our objective is different: retain a same-family
+drafter/verifier stack deployable on consumer hardware, then recover speed and
+stability by adapting runtime policy (adaptive $k$, rescue switching, and tail
+fallback) instead of introducing a newly trained drafter.
+
+\subsection{Design objective}
+
+Let speculative-cycle latency be
+\begin{equation}
+  L = \frac{T_{\text{draft}} + T_{\text{verify}}}{\tau},
+\end{equation}
+where $\tau$ is expected accepted tokens per cycle. In fixed-policy speculative
+decoding, poorly matched samples can reduce $\tau$ and increase total verify
+steps, producing heavy-tail runtime. ACSD explicitly targets this effect by
+adapting draft policy at sample level.
+
+\subsection{Derived adaptive policy template}
+
+ACSD combines four online controls while preserving standard target-side
+verification:
+\begin{enumerate}
+  \item \textbf{Adaptive $k$:} choose $k\in\{4,8,16\}$ from rolling acceptance,
+        using larger blocks only when acceptance supports it. To avoid cold-start
+        overshoot, each sample starts from base $k$ before adaptive updates.
+  \item \textbf{Cascaded draft switch:} use 0.5B as a fast primary drafter and
+        switch to 1.5B rescue drafting when acceptance remains low for
+        consecutive verify steps, then enforce a cooldown before a new rescue
+        episode to reduce oscillation.
+  \item \textbf{Tail guardrail:} if acceptance stays below a threshold after a
+        minimum generated length for multiple consecutive checks, fall back to
+        target-only autoregressive decoding for the remainder of that sample.
+  \item \textbf{Checkpointed execution:} persist partial CSV and verify-log
+        artifacts at fixed intervals so interrupted runs retain recoverable
+        progress.
+\end{enumerate}
+
+This design preserves verifier compatibility and allows direct comparison with
+vanilla speculative decoding under the same manifests, prompts, metrics, and
+hardware.
+
+\begin{figure}[t]
+\centering
+\resizebox{0.98\columnwidth}{!}{%
+\begin{tikzpicture}[
+      node distance=4.5mm and 5mm,
+      box/.style={rectangle, draw, rounded corners=1mm, align=center, minimum height=6mm, text width=30mm, inner sep=1.5mm},
+      decision/.style={diamond, draw, align=center, aspect=2, inner sep=1.1mm, text width=22mm},
+      line/.style={-Latex, thick, shorten >=1pt, shorten <=1pt}
+]
+\node[box] (start) {Start sample\\init primary draft, base $k$};
+\node[box, below=of start] (draft) {Draft proposes $k$ tokens\\(0.5B primary or 1.5B rescue)};
+\node[box, below=of draft] (verify) {Target verifies draft block\\compute rolling $\alpha$};
+\node[decision, below=of verify] (high) {$\alpha \ge \tau_{\text{high}}$?};
+\node[box, left=of high, xshift=-8mm] (kup) {Increase $k$\\toward 16};
+\node[decision, below=of high] (low) {$\alpha \le \tau_{\text{low}}$?};
+\node[box, left=of low, xshift=-8mm] (kdown) {Reduce $k$\\toward 4};
+\node[decision, below=of low] (rescue) {Low-accept streak\\$\ge c$ and cooldown=0?};
+\node[box, left=of rescue, xshift=-8mm] (switch) {Switch to 1.5B rescue\\for $h$ cycles};
+\node[decision, below=of rescue] (fallback) {$\alpha < \tau_{\text{AR}}$ for\\$m$ checks and length $\ge L_{\min}$?};
+\node[box, right=of fallback, xshift=8mm] (ar) {Fallback to target-only\\AR for tail};
+\node[box, below=of fallback] (loop) {Continue next ACSD cycle};
+\node[box, below=of loop] (end) {EOS or max tokens\\end sample};
+\coordinate (loopRightTop) at ([xshift=18mm]draft.east);
+\coordinate (loopRightBottom) at ([xshift=18mm]end.east);
+
+\draw[line] (start) -- (draft);
+\draw[line] (draft) -- (verify);
+\draw[line] (verify) -- (high);
+\draw[line] (high) -- node[above, sloped, font=\scriptsize] {yes} (kup);
+\draw[line] (kup.east) to[out=0, in=180] (draft.west);
+\draw[line] (high) -- node[right, font=\scriptsize] {no} (low);
+\draw[line] (low) -- node[above, sloped, font=\scriptsize] {yes} (kdown);
+\draw[line] (kdown.east) to[out=0, in=180] (draft.west);
+\draw[line] (low) -- node[right, font=\scriptsize] {no} (rescue);
+\draw[line] (rescue) -- node[above, sloped, font=\scriptsize] {yes} (switch);
+\draw[line] (switch.east) to[out=0, in=180] (draft.west);
+\draw[line] (rescue) -- node[right, font=\scriptsize] {no} (fallback);
+\draw[line] (fallback) -- node[above, font=\scriptsize] {yes} (ar);
+\draw[line] (fallback) -- node[right, font=\scriptsize] {no} (loop);
+\draw[line] (ar) |- (end.east);
+\draw[line] (loop) -- (end);
+\draw[line] (end.east) -- (loopRightBottom) -- (loopRightTop) -- (draft.east);
+\end{tikzpicture}%
+}
+\caption{Adaptive speculative-control template derived from fixed-policy
+results. The controller adapts block size from rolling acceptance, switches
+from a 0.5B primary to a 1.5B rescue drafter when acceptance remains low,
+applies rescue cooldown, and uses delayed target-only autoregressive fallback
+for pathological tails.}
+\label{fig:acsd-flow}
+\end{figure}
+
+\subsection{How this guidance is used}
+
+Any future adaptive-policy experiment should be evaluated as a strict
+incremental study under the same protocol. We retain:
+\begin{itemize}
+  \item the same target model and task manifests,
+  \item the same deterministic and stochastic regimes,
+  \item the same reporting metrics ($S$, $\alpha$, $B_{\text{eff}}$, quality deltas),
+  \item the same artifact schema for per-configuration CSV outputs, with ACSD
+        metadata fields for adaptive-$k$ usage, rescue usage, and fallback rate.
+\end{itemize}
+
+Primary comparison points are the current best fixed-policy speculative
+setting ($k{=}4$ deterministic) and the high-$k$ settings ($k{=}16$) where
+fixed-policy decoding showed diminishing returns.
+
+\subsection{Scope in this paper}
+
+This section is intentionally scoped as design guidance derived from the fixed
+RTX4090 characterization in Section~\ref{sec:results}. Quantitative claims in
+this manuscript are restricted to the measured fixed-policy configurations.

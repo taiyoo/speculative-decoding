@@ -1,0 +1,83 @@
+\section{Introduction}
+
+Autoregressive decoding in large language models (LLMs) is inherently
+sequential: each generated token requires a full forward pass of the target
+model. This constraint directly limits single-stream throughput in interactive
+inference settings. Speculative decoding mitigates this bottleneck by adding a
+smaller draft model that proposes a length-$k$ token block, followed by one
+target-side verification step; modified rejection sampling preserves the target
+distribution~\cite{Leviathan2023,Chen2023specsampling}.
+
+Although speculative decoding is now well studied, deployment guidance remains
+uncertain for consumer-GPU settings. Reported gains in the literature are often
+obtained on data-center hardware and are sensitive to model pairing, proposal
+length, and sampling regime. For practitioners operating on a single RTX-class
+GPU, the key questions are practical: which draft size is worthwhile, which
+$k$ is optimal, and whether deterministic versus stochastic decoding changes
+the speed--quality frontier.
+
+This direction is increasingly important because real-world LLM usage is moving
+toward consumer-class deployment constraints: local assistants, student and
+developer laptops, and privacy-sensitive workloads where cloud offload is
+undesirable or expensive. In this setting, efficiency is not only a cost
+optimization problem; it is an accessibility and feasibility requirement.
+Inference methods that are robust on consumer hardware can widen practical LLM
+adoption beyond data-center environments.
+
+Beyond pure NLP serving, this deployment constraint is also relevant to
+mechatronic and cyber-physical workflows that require low-latency local
+language interaction, including edge-side instruction parsing, operator
+assistance, and offline diagnostics. We therefore position this paper as a
+hardware-aware characterization study for local intelligent systems, not as a
+new decoding algorithm.
+
+\subsection{Research questions}
+\label{sec:rqs}
+
+We address three research questions:
+\begin{enumerate}\itemsep0pt
+  \item[\textbf{RQ1.}] How much end-to-end speedup does vanilla
+        speculative decoding deliver against autoregressive decoding on a
+        single RTX~4090 Laptop with a 3\,B target, and how close is this to
+        a practical hardware-constrained upper bound?
+  \item[\textbf{RQ2.}] How do draft model size and draft length jointly
+        determine token acceptance and net latency, and what do these trends
+        imply about memory-traffic and kernel-launch overhead on consumer GPUs?
+  \item[\textbf{RQ3.}] How sensitive is the speed--quality trade-off to
+        the sampling regime (deterministic vs.\ stochastic) and to task
+        entropy?
+\end{enumerate}
+
+\subsection{Contributions}
+\label{sec:contributions}
+
+This paper makes the following contributions:
+\begin{enumerate}\itemsep0pt
+  \item A reproducible consumer-GPU protocol with frozen sample manifests,
+        matched prompts, and two decoding regimes across GSM8K, MMLU subset,
+        and CNN/DailyMail.
+  \item A complete 12-configuration speculative grid (two draft sizes,
+        $k\in\{4,8,16\}$, deterministic/stochastic) with regime-matched
+        baselines and per-configuration reporting of latency, throughput,
+        acceptance, and quality deltas.
+  \item Empirical evidence that, in the current RTX4090 CUDA-graph run family,
+        speedup decreases with larger $k$ (highest at $k{=}4$), with best
+        observed performance at 0.5B, $k{=}4$, deterministic ($S{=}3.0674$),
+        and a deterministic advantage in 5 of 6 matched draft--$k$ pairs.
+  \item A statistical reporting protocol for camera-ready evaluation: paired
+        bootstrap confidence intervals, one-sided significance tests for
+        $S{>}1$, and corrected pairwise comparisons for winner selection.
+  \item A practical operating recommendation and a transparent statement of
+        current reproducibility limitations (artifact consistency across reruns),
+        together with adaptive-policy design guidance derived from these
+        fixed-policy observations.
+\end{enumerate}
+
+The rest of the paper is organised as follows. Section~\ref{sec:related}
+reviews related work. Section~\ref{sec:protocol} defines the experimental
+protocol; Section~\ref{sec:metrics} defines metrics. Section~\ref{sec:impl}
+describes implementation and reproducibility controls. Section~\ref{sec:results}
+reports the main empirical findings. Section~\ref{sec:acsd} outlines
+an adaptive speculative-strategy discussion derived from the observed
+$k$-efficiency inflection. Section~\ref{sec:discussion}
+discusses implications, limitations, and conclusion.

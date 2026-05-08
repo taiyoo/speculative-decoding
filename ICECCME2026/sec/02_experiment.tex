@@ -1,0 +1,125 @@
+\section{Experimental Protocol}
+\label{sec:protocol}
+
+\subsection{Datasets and sample sizes}
+
+We evaluate on three benchmarks spanning reasoning, knowledge, and summarization:
+\begin{enumerate}
+    \item \textbf{GSM8K}~\cite{Cobbe2021} test subset: 300 samples.
+    \item \textbf{MMLU}~\cite{Hendrycks2020} subset: 500 samples (5 subjects $\times$ 100 each).
+    \item \textbf{CNN/DailyMail}~\cite{Narayan2018} subset: 200 samples.
+\end{enumerate}
+
+\noindent\textbf{Sampling policy:} Fixed random seed $= 42$, stratified sampling where applicable, and a frozen sample-ID manifest generated before experimentation. Each output CSV records seed and sample identifier, enabling paired analysis at sample level.
+
+\subsection{Prompt set}
+
+We use the following fixed prompt templates for each task:
+
+\smallskip\noindent\textbf{GSM8K:}
+\begin{quote}\small
+You are a careful math assistant. Solve the problem step by step and end with
+Final Answer: \textless number\textgreater.\\
+Question: \{question\}
+\end{quote}
+
+\noindent\textbf{MMLU:}
+\begin{quote}\small
+You are a knowledgeable assistant. Choose exactly one option.\\
+Question: \{question\}\\
+Options: A.~\{A\} B.~\{B\} C.~\{C\} D.~\{D\}\\
+Answer:
+\end{quote}
+
+\noindent\textbf{CNN/DailyMail:}
+\begin{quote}\small
+Summarize the following article in 3--4 sentences, preserving key facts and entities.\\
+Article: \{article\}\\
+Summary:
+\end{quote}
+\paragraph{Objective and hypotheses.}
+The study quantifies practical speculative-decoding gains on consumer hardware
+under fixed data and prompt controls.
+We test four hypotheses:
+\begin{itemize}
+    \item \textbf{H1:} Same-family speculative decoding yields positive net speedup
+        ($S>1$) over autoregressive decoding.
+    \item \textbf{H2:} Increasing draft length from $k{=}4$ to $k{=}8$ improves
+        speedup, while $k{=}16$ may reduce gains due to additional drafting
+        and verification overhead.
+    \item \textbf{H3:} A larger draft (1.5B) achieves higher acceptance and higher
+        net speed than a smaller draft (0.5B).
+    \item \textbf{H4:} Deterministic decoding is more runtime-efficient and quality
+        stable than stochastic decoding for the same draft and $k$.
+\end{itemize}
+
+\paragraph{Hardware and software controls.}
+All experiments run on one NVIDIA RTX~4090 Laptop (24GB VRAM) with a fixed software
+stack (PyTorch, Transformers, and tokenizer settings pinned by the project
+environment). We use the same runtime entry points and prompt templates for
+all configurations, and execute runs serially to avoid cross-run contention.
+
+\begin{table}[t]
+\centering
+\caption{Hardware profile used for the RTX4090 run family.}
+\label{tab:hw-profile}
+\small
+\begin{tabular}{ll}
+\hline
+\textbf{Component} & \textbf{Specification} \\
+\hline
+GPU & NVIDIA RTX~4090 Laptop GPU \\
+GPU memory & 24 GB GDDR6 \\
+Memory bandwidth & 576 GB/s \\
+CUDA cores & 9728 \\
+Architecture & Ada Lovelace \\
+Power profile & Laptop TGP class (80--150 W range) \\
+Software stack & PyTorch + Transformers (pinned env) \\
+\hline
+\end{tabular}
+\end{table}
+
+\paragraph{CUDA-graph runtime setup.}
+To reduce per-step launch overhead, we use a CUDA-graph-capable verify path.
+For each $k$, we keep fixed step shapes, pre-allocate static draft/verify
+buffers, and warm up before optional \texttt{torch.cuda.CUDAGraph} capture.
+During decoding, each cycle updates buffer contents and replays the graph when
+shape guards hold; otherwise it falls back to eager execution. This preserves
+output semantics while reducing host-side overhead in short speculative cycles.
+
+\paragraph{Model pairing.}
+Target model: Qwen2.5-3B-Instruct.
+Draft models: Qwen2.5-0.5B-Instruct and Qwen2.5-1.5B-Instruct.
+All models are same-family to minimise tokenizer mismatch and style drift.
+
+\paragraph{Task suite and manifests.}
+We evaluate on fixed manifests reused across all runs:
+\begin{itemize}
+    \item GSM8K arithmetic QA (300 samples), treated as logical reasoning
+        with strict step consistency;
+    \item MMLU subset with 5 subjects (500 samples), treated as knowledge
+        retrieval from a broad expert prior;
+    \item CNN/DailyMail summarisation (200 samples), treated as long-context
+        compression akin to operational log summarisation.
+\end{itemize}
+Each configuration therefore processes 1{,}000 prompts.
+
+\paragraph{Decoding regimes and grid.}
+Two regimes are evaluated:
+\begin{itemize}
+    \item \textbf{Deterministic:} greedy decoding ($T{=}0.0$, top-$p{=}1.0$; sampling disabled).
+    \item \textbf{Stochastic:} sampling with $T{=}0.7$, top-$p{=}0.9$, and no top-$k$ truncation.
+\end{itemize}
+For each draft model, we sweep $k\in\{4,8,16\}$, producing
+12 speculative configurations. We also run one autoregressive baseline per
+regime for anchored latency and throughput reporting.
+
+\paragraph{Endpoints.}
+The primary endpoint is paired wall-clock speedup
+$S = L_{\text{AR}}/L_{\text{spec}}$ as reported by the experiment summary
+artifact for each draft--$k$--regime combination.
+Secondary endpoints include acceptance rate $\alpha$, effective accepted block
+size $B_{\text{eff}}$, mean per-sample latency, throughput (tokens/s), and
+task-level quality deltas. Camera-ready statistical reporting uses paired
+bootstrap confidence intervals (10{,}000 resamples) and one-sided tests for
+$S{>}1$, with corrected pairwise winner tests.
