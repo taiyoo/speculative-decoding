@@ -16,6 +16,14 @@ GPU, the key questions are practical: which draft size is worthwhile, which
 $k$ is optimal, and whether deterministic versus stochastic decoding changes
 the speed--quality frontier.
 
+This direction is increasingly important because real-world LLM usage is moving
+toward consumer-class deployment constraints: local assistants, student and
+developer laptops, and privacy-sensitive workloads where cloud offload is
+undesirable or expensive. In this setting, efficiency is not only a cost
+optimization problem; it is an accessibility and feasibility requirement.
+Inference methods that are robust on consumer hardware can widen practical LLM
+adoption beyond data-center environments.
+
 \subsection{Research questions}
 \label{sec:rqs}
 
@@ -23,7 +31,7 @@ We address three research questions:
 \begin{enumerate}\itemsep0pt
   \item[\textbf{RQ1.}] How much end-to-end speedup does vanilla
         speculative decoding deliver against autoregressive decoding on a
-        single RTX~5090 Laptop with a 3\,B target?
+        single RTX~4090 Laptop with a 3\,B target?
   \item[\textbf{RQ2.}] How do draft model size and draft length jointly
         determine token acceptance and net latency?
   \item[\textbf{RQ3.}] How sensitive is the speed--quality trade-off to
@@ -43,10 +51,10 @@ This paper makes the following contributions:
         $k\in\{4,8,16\}$, deterministic/stochastic) with regime-matched
         baselines and per-configuration reporting of latency, throughput,
         acceptance, and quality deltas.
-  \item Empirical evidence of a non-monotonic $k$ effect, with highest observed
-        performance at 1.5B, $k{=}8$, deterministic ($S{=}1.7289$), and
-        higher deterministic mean speedup than stochastic decoding across all
-        matched draft--$k$ pairs in the current run family.
+  \item Empirical evidence that, in the current RTX4090 CUDA-graph run family,
+        speedup decreases with larger $k$ (highest at $k{=}4$), with best
+        observed performance at 0.5B, $k{=}4$, deterministic ($S{=}3.0674$),
+        and a deterministic advantage in 5 of 6 matched draft--$k$ pairs.
   \item A statistical reporting protocol for camera-ready evaluation: paired
         bootstrap confidence intervals, one-sided significance tests for
         $S{>}1$, and corrected pairwise comparisons for winner selection.

@@ -71,23 +71,3 @@ The same verification core is used for deterministic and stochastic modes,
 with only sampling policy changed by regime parameters.
 Each configuration writes a dedicated CSV artifact with per-sample runtime,
 token counts, and quality-relevant outputs.
-
-\paragraph{Aggregation and summary artifact.}
-The metrics module merges paired records by sample identifier and computes
-speedup $S$, acceptance $\alpha$, effective accepted block size
-$B_{\text{eff}}$, latency, throughput, and task-level quality deltas.
-The main reporting table used in this paper is the consolidated summary CSV
-(\texttt{all\_configs\_summary.csv}).
-
-\paragraph{Reproducibility controls and caveat.}
-Runs are executed serially on one GPU, with fixed manifests and fixed decode
-limits. We preserve raw per-configuration artifacts and derived summaries.
-Because some baseline files were rerun after initial summary generation,
-absolute baseline totals and summary-implied baselines may differ across
-artifact sets; this paper therefore treats configuration ranking and paired
-summary metrics as primary evidence, and reports this mismatch explicitly as a
-threat to strict replay equivalence. For camera-ready reproducibility, reported
-tables are tied to a coherent run family identified by manifest snapshot,
-configuration state, and generation artifacts produced in a single execution
-window. We release sufficient metadata and commands to regenerate all tables
-from raw CSV outputs.

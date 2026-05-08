@@ -1,14 +1,23 @@
 \section{ACSD Extension}
 \label{sec:acsd}
 
-The current empirical study identifies a practical optimum at moderate block
-size ($k{=}8$). Beyond this point, accepted block length can increase while net
-speedup declines, indicating that fixed-policy drafting is vulnerable to
-acceptance collapse and long-tail latency. This motivates a targeted extension:
+The current empirical study identifies the strongest fixed-policy speedup at
+smaller block size ($k{=}4$), with net speed degrading as $k$ increases even
+when accepted block length rises. This indicates that fixed-policy drafting is
+vulnerable to acceptance/overhead imbalance and long-tail latency. This
+motivates a targeted extension:
 Adaptive Cascaded Speculative Decoding (ACSD), which keeps the standard
 verifier but adapts policy online. In the latest implementation, ACSD is
 integrated into the Phase 7/8 pipeline with additional runtime-stability
 controls to reduce pathological latency tails in long runs.
+
+ACSD is inspired by a practical deployment gap. Advanced speculative variants
+such as EAGLE-3 and DFlash reduce drafting cost through new drafter
+architectures and dedicated training/integration pipelines, and are typically
+reported on very strong accelerators. Our objective is different: retain a
+same-family drafter/verifier stack that can run on consumer hardware, then
+recover additional speed by adapting runtime policy (adaptive $k$, rescue
+switching, and tail fallback) instead of introducing a new trained drafter.
 
 \subsection{Design objective}
 
@@ -54,7 +63,7 @@ hardware.
       decision/.style={diamond, draw, align=center, aspect=2, inner sep=1.1mm, text width=22mm},
       line/.style={-Latex, thick, shorten >=1pt, shorten <=1pt}
 ]
-\node[box] (start) {Start sample\\init primary draft, $k{=}8$};
+\node[box] (start) {Start sample\\init primary draft, base $k$};
 \node[box, below=of start] (draft) {Draft proposes $k$ tokens\\(0.5B primary or 1.5B rescue)};
 \node[box, below=of draft] (verify) {Target verifies draft block\\compute rolling $\alpha$};
 \node[decision, below=of verify] (high) {$\alpha \ge \tau_{\text{high}}$?};
@@ -108,8 +117,8 @@ protocol. We will retain:
         metadata fields for adaptive-$k$ usage, rescue usage, and fallback rate.
 \end{itemize}
 
-Primary comparison points are the current best fixed-policy autoregressive
-settings ($k{=}8$ deterministic) and the high-$k$ settings ($k{=}16$) where
+Primary comparison points are the current best fixed-policy speculative
+setting ($k{=}4$ deterministic) and the high-$k$ settings ($k{=}16$) where
 fixed-policy decoding showed diminishing returns.
 
 \subsection{Status}

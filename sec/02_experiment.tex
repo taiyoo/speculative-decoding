@@ -54,10 +54,20 @@ We test four hypotheses:
 \end{itemize}
 
 \paragraph{Hardware and software controls.}
-All experiments run on one NVIDIA RTX~5090 Laptop (24GB VRAM) with a fixed software
+All experiments run on one NVIDIA RTX~4090 Laptop (24GB VRAM) with a fixed software
 stack (PyTorch, Transformers, and tokenizer settings pinned by the project
 environment). We use the same runtime entry points and prompt templates for
 all configurations, and execute runs serially to avoid cross-run contention.
+
+\paragraph{CUDA-graph runtime setup.}
+To reduce per-step launch overhead, we run a CUDA-graph-capable verify path
+with fixed step shapes per $k$, pre-allocated static device buffers for
+draft/verify tensors, and warm-up before optional
+\texttt{torch.cuda.CUDAGraph} capture. During decoding, each cycle updates
+buffer contents and replays the captured graph when shape guards hold;
+otherwise execution safely falls back to eager mode. This keeps output
+semantics unchanged while reducing host-side overhead in short speculative
+cycles.
 
 \paragraph{Model pairing.}
 Target model: Qwen2.5-3B-Instruct.
