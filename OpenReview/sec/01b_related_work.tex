@@ -41,20 +41,6 @@ lightweight (5-layer) \emph{block-diffusion} drafter conditioned on target
 hidden features, reporting up to $5\times$ end-to-end speedup over
 autoregressive baselines on H200/B200 hardware.
 
-\paragraph{Deployment context: distributed and mobile inference.}
-Beyond algorithmic speedup, practical inference now spans cloud clusters,
-edge servers, and laptop/mobile GPUs with tighter bandwidth and power budgets.
-In this setting, host-device synchronization cost and memory movement become
-first-order effects, so speculative decoding must be characterized as a
-systems policy problem rather than only a token-acceptance problem.
-
-\paragraph{Quantization and speculative decoding.}
-Quantization is another key axis for practical deployment. Lower-precision
-weights can reduce memory traffic and improve effective throughput, but may
-also shift acceptance dynamics through draft/target distribution mismatch.
-This interaction suggests that draft size, $k$, and precision should be
-co-designed when targeting constrained hardware.
-
 \paragraph{Position of this work.}
 This work focuses on a controlled consumer-GPU evaluation of vanilla
 speculative decoding with same-family model pairing (Qwen2.5-3B target,
