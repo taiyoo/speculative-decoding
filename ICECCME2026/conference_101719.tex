@@ -11,6 +11,11 @@
 }
 
 
+% Camera-ready flag: set to \camerareadytrue for camera-ready submission
+% Set to \camerareadyfalse for blind-review submission
+\newif\ifcameraready
+\camerareadyfalse
+
 \usepackage{blindtext}
 \usepackage{eso-pic}
 \IEEEoverridecommandlockouts
@@ -42,15 +47,28 @@
 \begin{document}
 \title{\vspace*{1cm}Characterizing Speculative Decoding Dynamics for Large Language Models on Consumer-Class GPUs}
 
-\author{
-\IEEEauthorblockN{Anonymous Submission}
-\IEEEauthorblockA{Author details omitted for double-blind review}
-}
+\ifcameraready
+  \author{
+  \IEEEauthorblockN{Samsu Sempena}
+  \IEEEauthorblockA{The University of Sydney\\
+  ssem0956@uni.sydney.edu.au}
+  \and
+  \IEEEauthorblockN{Zhuohan Cui}
+  \IEEEauthorblockA{The University of Sydney\\
+  zcui0321@uni.sydney.edu.au}
+  }
+\else
+  \author{
+  \IEEEauthorblockN{Anonymous Submission}
+  \IEEEauthorblockA{Author details omitted for double-blind review}
+  }
+\fi
 
 \maketitle
-% Disabled for double-blind review.
-% \conf{\textit{Proc. of the International Conference on Electrical, Computer, Communications and Mechatronics Engineering (ICECCME 2026) \\
-% 15-17 October 2026, Bali, Indonesia}}
+\ifcameraready
+  \conf{\textit{Proc. of the International Conference on Electrical, Computer, Communications and Mechatronics Engineering (ICECCME 2026) \\
+  15-17 October 2026, Bali, Indonesia}}
+\fi
 
 \input{sec/00_abstract}
 
@@ -66,7 +84,9 @@ speculative decoding, large language models, inference acceleration, benchmarkin
 \input{sec/06_results}
 \input{sec/07_acsd}
 \input{sec/05_discussion}
-%\input{sec/08_acknowledgements}
+\ifcameraready
+  \input{sec/08_acknowledgements}
+\fi
 
 {\small
 \bibliographystyle{IEEEtran}
