@@ -1,7 +1,7 @@
 \section{Related Work}
 \label{sec:related}
 
-\paragraph{Vanilla speculative decoding.}
+\paragraph{Vanilla speculative decoding}
 Leviathan \emph{et al.}~\cite{Leviathan2023} introduced the canonical
 draft--verify scheme: a smaller \emph{draft} model proposes $k$ tokens
 autoregressively and the larger \emph{target} verifies them in a single
@@ -21,7 +21,7 @@ draft/target cost ratio and the empirical token acceptance rate $\alpha$.
 Stern \emph{et al.}~\cite{Stern2018blockwise} earlier explored blockwise
 parallel decoding within a single model.
 
-\paragraph{Reducing drafting cost.}
+\paragraph{Reducing drafting cost}
 Medusa~\cite{Cai2024Medusa} eliminates the external draft by attaching
 multiple prediction heads to the target model and verifying the resulting
 candidate tree in one forward pass. The EAGLE
@@ -31,7 +31,7 @@ under their settings. Despite these refinements, $T_{\text{draft}}$ remains
 linear in $k$, forcing EAGLE-3 to a single transformer layer and capping
 reported gains at about $2$--$3\times$ on strong GPUs.
 
-\paragraph{Diffusion-based drafters.}
+\paragraph{Diffusion-based drafters}
 Recent work directly attacks the linear-in-$k$ drafting bottleneck.
 DiffuSpec~\cite{Li2025DiffuSpec} and SpecDiff-2~\cite{Sandler2025SpecDiff2}
 explore diffusion-based parallel drafting to improve speculative-decoding
@@ -40,10 +40,10 @@ adaptation. DFlash~\cite{Chen2026dflash} uses a lightweight 5-layer
 block-diffusion drafter conditioned on target hidden features and reports up
 to $5\times$ speedup over autoregressive baselines on H200/B200 hardware.
 
-\paragraph{Cascaded speculative control.}
+\paragraph{Cascaded speculative control}
 Recent advancements in cascaded architectures attempt to dynamically balance inference efficiency and generation quality. For instance, CAS-Spec constructs a hierarchy of draft stages on-the-fly from a single target model using Dynamically Switchable Inference Acceleration (DSIA) strategies, such as layer sparsity and activation quantization, coordinated by a Dynamic Tree Cascade (DyTC) algorithm~\cite{Wang2025CASSpec}. Similarly, Speculative Cascades employs a hybrid approach with a deferral rule, invoking larger, costlier models only for complex inputs while using smaller models for simpler tasks, thereby optimizing the cost-quality trade-off~\cite{Narasimhan2024FasterCascades}. While these state-of-the-art methods achieve substantial acceleration, they inherently require either surgical modifications to the target model's internal architecture (e.g., dynamic sparsity) or complex external serving infrastructure to handle deferral logic. In stark contrast, our proposed ACSD operates as a strictly training-free and architecture-agnostic online controller. By dynamically scheduling between physically independent, same-family draft models (0.5B and 1.5B) based on real-time acceptance heuristics, ACSD circumvents the massive overhead of intra-model modifications and new drafter training. Its primary design objective is not to compete for theoretical peak throughput on data-center accelerators, but to serve as a robust, hardware-aware tail-latency guardrail that guarantees runtime stability on resource-constrained consumer-class GPUs.
 
-\paragraph{Precision and systems deployment.}
+\paragraph{Precision and systems deployment}
 Deployment-oriented inference work shows that quantization and memory traffic
 are central to practical throughput gains on constrained hardware.
 Low-precision techniques such as LLM.int8()~\cite{Dettmers2022Int8} reduce
@@ -53,14 +53,14 @@ acceptance behavior when verifier and drafter precision settings differ.
 This interaction motivates reporting speed and quality jointly, rather than
 throughput alone.
 
-\paragraph{Distributed and edge relevance.}
+\paragraph{Distributed and edge relevance}
 In distributed and mobile computing settings, local inference can reduce
 round-trip latency and cloud dependency for interactive workloads. In this
 context, speculative decoding is relevant beyond chatbot serving, including
 edge language interfaces where bounded latency and predictable runtime matter
 as much as peak throughput.
 
-\paragraph{Position of this work.}
+\paragraph{Position of this work}
 This work focuses on a controlled consumer-GPU evaluation of vanilla
 speculative decoding with same-family model pairing (Qwen2.5-3B target,
 0.5B/1.5B drafts) under deterministic and stochastic regimes. Rather than

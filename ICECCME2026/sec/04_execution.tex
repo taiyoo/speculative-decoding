@@ -1,20 +1,20 @@
 \section{Implementation and Reproducibility}
 \label{sec:impl}
 
-\paragraph{Code organization.}
+\paragraph{Code organization}
 The experiment pipeline is implemented under the project source directory with
 modular components for configuration, data loading, and autoregressive baselines,
 speculative decoding, metric aggregation, and runtime orchestration.
 The notebook driver executes these modules in fixed phase order and writes
 artifacts to the results directory.
 
-\paragraph{Model loading and precision.}
+\paragraph{Model loading and precision}
 In the current configuration, target and draft models are loaded in FP16 for
 the main sweep, with quantization controls retained in configuration for
 alternative runs. The tokenizer and generation limits are kept constant between
 baselines and speculative runs to preserve paired comparability.
 
-\paragraph{Baselines.}
+\paragraph{Baselines}
 We run one autoregressive baseline per regime (deterministic and stochastic)
 with the same manifests and output-length constraints as speculative runs.
 Each baseline artifact stores per-sample latency, output length, and task
@@ -29,7 +29,7 @@ from the target distribution when needed. This procedure preserves target-level
 generation semantics while exposing acceptance statistics needed for analysis.
 Figure~\ref{fig:specdec-impl-flow} summarizes this implementation flow.
 
-\paragraph{CUDA-graph overhead model and observed effect.}
+\paragraph{CUDA-graph overhead model and observed effect}
 For a speculative cycle, we model runtime as
 \begin{equation}
 T_{\text{cycle}} = k\,t_{\text{draft}} + t_{\text{verify}} + n_{\text{launch}}\,t_{\text{launch}},
@@ -48,7 +48,7 @@ $k{=}8$) reports mean TPOT 32.84 ms/token (off) versus 33.30 ms/token (on),
 with mean delta $+0.46$ ms/token (95\% CI $[0.14, 0.83]$), indicating no
 TPOT benefits under the current capture conditions.
 
-\paragraph{Dynamic-scheduling bottleneck in native PyTorch paths.}
+\paragraph{Dynamic-scheduling bottleneck in native PyTorch paths}
 Fallback eager execution should not be viewed only as an implementation miss.
 It reflects a broader systems challenge for end-to-end dynamic speculation.
 When acceptance-dependent control flow, sampling branches, and cache updates
@@ -58,7 +58,7 @@ serial control overhead can erase expected gains from speculative parallelism,
 as also emphasized in modern inference runtime roadmaps for dynamic
 scheduling.
 
-\paragraph{Tokenizer isomorphism as an enabling design choice.}
+\paragraph{Tokenizer isomorphism as an enabling design choice}
 Same-family draft/target pairing is a central engineering decision in this
 study. Because the draft and target tokenizers are isomorphic, speculative
 verification avoids per-step vocabulary alignment and token translation.
@@ -102,7 +102,7 @@ committed, and caches are cropped to preserve exact target-consistent decoding.}
 \label{fig:specdec-impl-flow}
 \end{figure}
 
-\paragraph{Regimes and outputs.}
+\paragraph{Regimes and outputs}
 The same verification core is used for deterministic and stochastic modes,
 with only the sampling policy changed by regime parameters.
 Each configuration writes a dedicated CSV artifact with per-sample runtime,

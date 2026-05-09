@@ -37,7 +37,7 @@ Summarize the following article in 3--4 sentences, preserving key facts and enti
 Article: \{article\}\\
 Summary:
 \end{quote}
-\paragraph{Objective and hypotheses.}
+\paragraph{Objective and hypotheses}
 The study quantifies practical speculative-decoding gains on consumer hardware
 under fixed data and prompt controls.
 We test four hypotheses:
@@ -53,7 +53,7 @@ We test four hypotheses:
         stable than stochastic decoding for the same draft and $k$.
 \end{itemize}
 
-\paragraph{Hardware and software controls.}
+\paragraph{Hardware and software controls}
 All experiments run on one NVIDIA RTX4090 (24GB VRAM) with a fixed
 software stack (PyTorch, Transformers, and pinned tokenizer settings). We use
 the same runtime entry points and prompt templates for all configurations, and
@@ -79,7 +79,7 @@ Software stack & PyTorch + Transformers (pinned env) \\
 \end{tabular}
 \end{table}
 
-\paragraph{CUDA-graph runtime setup.}
+\paragraph{CUDA-graph runtime setup}
 To reduce per-step launch overhead, we use a CUDA-graph-capable verify path.
 For each $k$, we keep fixed step shapes, pre-allocate static draft/verify
 buffers, and warm up before optional \texttt{torch.cuda.CUDAGraph} capture.
@@ -87,13 +87,13 @@ During decoding, each cycle updates buffer contents and replays the graph when
 shape guards hold; otherwise, it falls back to eager execution. This preserves
 output semantics while reducing host-side overhead in short speculative cycles.
 
-\paragraph{Model pairing.}
+\paragraph{Model pairing}
 Target model: Qwen2.5-3B-Instruct.
 Draft models: Qwen2.5-0.5B-Instruct and Qwen2.5-1.5B-Instruct.
 All models are from the same family to minimize tokenizer mismatch and style drift.
 Each configuration processes the same fixed 1{,}000-prompt manifest.
 
-\paragraph{Task-entropy interpretation.}
+\paragraph{Task-entropy interpretation}
 We treat the three tasks as distinct decoding-entropy regimes to interpret
 acceptance behavior: GSM8K is a lower-entropy chain reasoning with concentrated
 next-token mass; MMLU is medium-entropy constrained QA; CNN/DailyMail is
@@ -101,7 +101,7 @@ higher-entropy open-ended summarization. This framing is used only for
 interpretation of acceptance and quality trends, not as an additional
 optimization objective.
 
-\paragraph{Decoding regimes and grid.}
+\paragraph{Decoding regimes and grid}
 Two regimes are evaluated:
 \begin{itemize}
     \item \textbf{Deterministic:} greedy decoding ($T{=}0.0$, top-$p{=}1.0$; sampling disabled).
@@ -111,7 +111,7 @@ For each draft model, we sweep $k\in\{4,8,16\}$, producing
 12 speculative configurations. We also run one autoregressive baseline per
 regime for anchored latency and throughput reporting.
 
-\paragraph{Endpoints.}
+\paragraph{Endpoints}
 The primary endpoint is paired wall-clock speedup
 $S = L_{\text{AR}}/L_{\text{spec}}$ as reported by the experiment summary
 artifact for each draft--$k$--regime combination.
