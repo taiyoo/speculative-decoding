@@ -1,21 +1,20 @@
 \section{Discussion on Adaptive Speculative Strategies Derived from Empirical Findings}
 \label{sec:acsd}
-
 The current empirical study identifies the strongest fixed-policy speedup at
-smaller block size ($k{=}4$), with net speed degrading as $k$ increases even
-when accepted block length rises. This pattern indicates that fixed-policy
+a smaller block size ($k{=}4$), with net speed degrading as $k$ increases, even
+when the accepted block length rises. This pattern indicates that fixed-policy
 drafting is vulnerable to acceptance/overhead imbalance and long-tail latency.
 We therefore design and evaluate an adaptive-policy variant that keeps standard
 target-side verification while adapting control decisions online.
 
 ACSD is intentionally not framed as a new peak-throughput optimizer. Its role
 is to provide a practical tail-latency guardrail under dynamic acceptance
-collapse, while keeping mean performance near the best static operating point.
+collapse, while keeping the mean performance near the best static operating point.
 
 Advanced variants such as EAGLE-3 and DFlash reduce drafting cost through new
 drafter architectures and dedicated training pipelines, often evaluated on
-strong accelerators. Our objective is different: keep a same-family
-drafter/verifier stack that is deployable on consumer hardware, and recover
+strong accelerators. Our objective is different: to maintain a stack of drafters / verifiers of the same family
+ that is deployable on consumer hardware, and recover
 speed and stability by runtime control (adaptive $k$, rescue switching, and
 tail fallback) rather than a newly trained drafter.
 
@@ -25,33 +24,24 @@ Let speculative-cycle latency be
 \begin{equation}
   L = \frac{T_{\text{draft}} + T_{\text{verify}}}{\tau},
 \end{equation}
-where $\tau$ is expected accepted tokens per cycle. In fixed-policy speculative
+where $\tau$ is the expected number of accepted tokens per cycle. In fixed-policy speculative
 decoding, poorly matched samples can reduce $\tau$ and increase total verify
-steps, producing heavy-tail runtime. ACSD explicitly targets this effect by
-adapting draft policy at sample level.
+steps, producing a heavy-tail runtime. ACSD explicitly targets this effect by
+adapting draft policy at the sample level.
 
-\subsection{Derived adaptive policy template}
 
-ACSD combines four online controls while preserving standard target-side
-verification:
+\subsection{Formalization of the ACSD Policy}
+To rigorously define the runtime behavior, we formalize the ACSD controller as a deterministic finite-state machine (FSM). Let $t$ denote the current verification step, and $k_t$ be the dynamic draft length. The system state is defined as $S_t \in \{\mathcal{D}_{pri}, \mathcal{D}_{res}, \mathcal{M}_{AR}\}$, representing the primary drafter (0.5B), the rescue drafter (1.5B), and the autoregressive fallback mode, respectively. The state transitions and scheduling parameters are directly governed by the real-time empirical acceptance rate $\alpha_t = \frac{\tau_t}{k_t}$, where $\tau_t$ is the number of accepted tokens at step $t$. ACSD incorporates four core online control mechanisms:
+
 \begin{enumerate}
-  \item \textbf{Adaptive $k$:} choose $k$ from a narrow neighborhood around
-        base $k{=}4$ (typically 3--5, with rare downshifts), using larger
-        blocks only when acceptance supports it.
-  \item \textbf{Cascaded draft switch:} use 0.5B as a fast primary drafter and
-        switch to 1.5B rescue drafting when acceptance remains low for
-        consecutive verify steps, then enforce a cooldown before a new rescue
-        episode to reduce oscillation.
-  \item \textbf{Tail guardrail:} if acceptance stays below a threshold after a
-        minimum generated length for multiple consecutive checks, fall back to
-        target-only autoregressive decoding for the remainder of that sample.
-  \item \textbf{Checkpointed execution:} save partial CSV and verify logs at
-        fixed intervals so interrupted runs can resume safely.
-\end{enumerate}
+    \item \textbf{Dynamic Draft Length ($k_t$):} While operating in $\mathcal{D}_{pri}$ or $\mathcal{D}_{res}$, $k_t$ is modulated within a narrow operational neighborhood around the empirical optimum of 4 (typically 3 to 5). Specifically, the controller updates the length via $k_{t+1} = \min(k_t + 1, k_{max})$ if $\alpha_t \geq \theta_{up}$, and $k_{t+1} = \max(k_t - 1, k_{min})$ if $\alpha_t < \theta_{down}$. This bounding strategy effectively caps the memory bandwidth overhead during target-side verification.
 
-This design preserves verifier compatibility and enables direct comparison with
-vanilla speculative decoding under the same manifests, prompts, metrics, and
-hardware.
+    \item \textbf{Cascaded Draft Switch ($S_t \rightarrow \mathcal{D}_{res}$):} We maintain a continuous penalty counter $C_t$ to track consecutive low-acceptance events. If $\alpha_t < \theta_{rescue}$, the counter increments; otherwise, $C_t = 0$. Once $C_t \geq N_{rescue}$, the controller triggers a state transition to the 1.5B rescue drafter ($S_{t+1} = \mathcal{D}_{res}$) to leverage its higher representational capacity for difficult distributions. To mitigate scheduling oscillation, a cooling window $W_{cool}$ (measured in generation steps) is strictly enforced before any subsequent model switching.
+
+    \item \textbf{Tail Latency Guardrail ($S_t \rightarrow \mathcal{M}_{AR}$):} To prevent severe tail-latency degradation under sustained high-entropy inputs, a terminal fallback mechanism is employed. If the rescue drafter fails to recover the acceptance rate (i.e., $\alpha_t < \theta_{fallback}$ for $N_{fallback}$ consecutive steps) after generating a minimum prefix length $L_{min}$, the system forcefully transitions to pure autoregressive decoding ($S_{t+1} = \mathcal{M}_{AR}$) for the remainder of the sample.
+
+    \item \textbf{Checkpointed Execution:} The execution context, including partial generation sequences and verification logs, is serialized at predefined intervals to guarantee system resilience and allow safe resumption of interrupted runs.
+\end{enumerate}
 
 \subsection{How this guidance is used}
 
@@ -77,6 +67,6 @@ that operating point and far from the high-$k$ tail-latency regime
 \subsection{Scope in this paper}
 
 This section combines design rationale with measured ACSD behavior under the
-same protocol. Quantitative claims are restricted to the reported fixed-policy
+same protocol. Quantitative claims are restricted to the reported fixed policy
 and ACSD runs in this manuscript; broader generalization still requires
 additional hardware/model families.

@@ -10,7 +10,7 @@ We evaluate on three benchmarks spanning reasoning, knowledge, and summarization
     \item \textbf{CNN/DailyMail}~\cite{Narayan2018} subset: 200 samples.
 \end{enumerate}
 
-\noindent\textbf{Sampling policy:} Fixed random seed $= 42$, stratified sampling where applicable, and a frozen sample-ID manifest generated before experimentation. Each output CSV records seed and sample identifier, enabling paired analysis at sample level.
+\noindent\textbf{Sampling policy:} Fixed random seed $= 42$, stratified sampling where applicable, and a frozen sample-ID manifest generated before experimentation. Each output CSV records the seed and sample identifier, enabling paired analysis at the sample level.
 
 \subsection{Prompt set}
 
@@ -54,7 +54,7 @@ We test four hypotheses:
 \end{itemize}
 
 \paragraph{Hardware and software controls.}
-All experiments run on one NVIDIA RTX~4090 (24GB VRAM) with a fixed
+All experiments run on one NVIDIA RTX4090 (24GB VRAM) with a fixed
 software stack (PyTorch, Transformers, and pinned tokenizer settings). We use
 the same runtime entry points and prompt templates for all configurations, and
 run serially to avoid cross-run contention.
@@ -68,7 +68,7 @@ run serially to avoid cross-run contention.
 \hline
 \textbf{Component} & \textbf{Specification} \\
 \hline
-GPU & NVIDIA RTX~4090 GPU \\
+GPU & NVIDIA RTX4090 GPU \\
 GPU memory & 24 GB GDDR6X \\
 Memory bandwidth & 1008 GB/s \\
 CUDA cores & 16384 \\
@@ -84,18 +84,18 @@ To reduce per-step launch overhead, we use a CUDA-graph-capable verify path.
 For each $k$, we keep fixed step shapes, pre-allocate static draft/verify
 buffers, and warm up before optional \texttt{torch.cuda.CUDAGraph} capture.
 During decoding, each cycle updates buffer contents and replays the graph when
-shape guards hold; otherwise it falls back to eager execution. This preserves
+shape guards hold; otherwise, it falls back to eager execution. This preserves
 output semantics while reducing host-side overhead in short speculative cycles.
 
 \paragraph{Model pairing.}
 Target model: Qwen2.5-3B-Instruct.
 Draft models: Qwen2.5-0.5B-Instruct and Qwen2.5-1.5B-Instruct.
-All models are same-family to minimise tokenizer mismatch and style drift.
+All models are from the same family to minimize tokenizer mismatch and style drift.
 Each configuration processes the same fixed 1{,}000-prompt manifest.
 
 \paragraph{Task-entropy interpretation.}
 We treat the three tasks as distinct decoding-entropy regimes to interpret
-acceptance behavior: GSM8K is lower-entropy chain reasoning with concentrated
+acceptance behavior: GSM8K is a lower-entropy chain reasoning with concentrated
 next-token mass; MMLU is medium-entropy constrained QA; CNN/DailyMail is
 higher-entropy open-ended summarization. This framing is used only for
 interpretation of acceptance and quality trends, not as an additional

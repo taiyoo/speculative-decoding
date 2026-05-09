@@ -6,7 +6,7 @@ model. This constraint directly limits single-stream throughput in interactive
 inference settings. Speculative decoding mitigates this bottleneck by adding a
 smaller draft model that proposes a length-$k$ token block, followed by one
 target-side verification step; modified rejection sampling preserves the target
-distribution~\cite{Leviathan2023,Chen2023specsampling}.
+distribution~\cite{Leviathan2023, Chen2023specsampling}.
 
 Although speculative decoding is now well studied, deployment guidance remains
 uncertain for consumer-GPU settings. Reported gains in the literature are often
@@ -34,7 +34,7 @@ We address three research questions:
 \begin{enumerate}\itemsep0pt
   \item[\textbf{RQ1.}] How much end-to-end speedup does vanilla
         speculative decoding delivers against autoregressive decoding on a
-        single RTX~4090 with a 3\,B target, and how close is this to
+        single RTX4090 with a 3\,B target, and how close is this to
         a practical hardware-constrained upper bound?
   \item[\textbf{RQ2.}] How do draft model size and draft length jointly
         determine token acceptance and net latency, and what do these trends
@@ -74,4 +74,4 @@ describes implementation and reproducibility controls. Section~\ref{sec:results}
 reports the main empirical findings. Section~\ref{sec:acsd} outlines
 an adaptive speculative-strategy framework and its observed runtime behavior.
 Section~\ref{sec:discussion}
-discusses implications, limitations, and conclusion.
+discusses implications, limitations, and conclusions.

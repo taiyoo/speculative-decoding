@@ -15,9 +15,9 @@ faster than autoregressive decoding in both regimes, but does not exceed the
 best fixed-policy throughput point (0.5B, $k{=}4$, deterministic). ACSD
 therefore appears most useful as a robustness-oriented control layer: mean
 latency is slightly above fixed $k{=}4$, but tail behavior remains close to
-that point and well below high-$k$ collapse.
+that point and well below the high-$k$ collapse.
 
-Together, these results suggest that practical deployment should prioritise a
+Together, these results suggest that practical deployment should prioritize a
 smaller block size ($k{=}4$) and deterministic policy when latency is the
 primary objective.
 
@@ -51,20 +51,20 @@ intervals and corrected pairwise tests from a coherent artifact family.
 \label{sec:threats}
 
 \textbf{Single-hardware scope.}
-All results are from one RTX~4090. Relative rankings are informative for this
+All results are from one RTX4090. Relative rankings are informative for this
 deployment class, but absolute speedups may shift on other GPU generations.
-In this run family, CUDA-graph metadata indicates pending/zero capture rate,
+In this run family, CUDA-graph metadata indicates a pending/zero capture rate,
 so reported gains reflect the same code path under fallback execution rather
 than successful graph replay.
 
-\textbf{Model-family scope.} All reported runs use same-family pairings
+\textbf{Model-family scope.} All reported runs use the same family pairings
 (Qwen2.5 target and drafts). Cross-family pairings may therefore exhibit
 materially different acceptance and quality behavior.
 
 \textbf{Evaluation breadth.}
-The benchmark set spans math reasoning, knowledge QA, and summarisation, but
-does not exhaust safety, factuality, or long-context behaviour. ROUGE-L in
-particular is an incomplete summarisation quality proxy.
+The benchmark set spans math reasoning, knowledge QA, and summarization, but
+does not exhaust safety, factuality, or long-context behavior. ROUGE-L in
+particular is an incomplete summarization quality proxy.
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -75,7 +75,7 @@ shows consistent acceleration across all tested fixed and adaptive
 configurations, with best observed performance at 0.5B, $k{=}4$, deterministic
 ($S{=}3.0674$). We find that increasing $k$ from 4 to 8 and 16 reduces net
 speedup in this setup, and that deterministic decoding is generally faster than
-stochastic decoding for matched settings. ACSD also delivers significant
+stochastic decoding for matched settings. ACSD also delivers a significant
 speedup over autoregressive baselines (deterministic $S{=}2.9561$, stochastic
 $S{=}2.8658$) with low fallback rates, but remains below the best fixed-policy
 speedup.

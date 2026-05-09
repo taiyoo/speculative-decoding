@@ -1,17 +1,17 @@
 \section{Implementation and Reproducibility}
 \label{sec:impl}
 
-\paragraph{Code organisation.}
+\paragraph{Code organization.}
 The experiment pipeline is implemented under the project source directory with
-modular components for configuration, data loading, autoregressive baselines,
+modular components for configuration, data loading, and autoregressive baselines,
 speculative decoding, metric aggregation, and runtime orchestration.
 The notebook driver executes these modules in fixed phase order and writes
 artifacts to the results directory.
 
 \paragraph{Model loading and precision.}
 In the current configuration, target and draft models are loaded in FP16 for
-the main sweep, with quantisation controls retained in configuration for
-alternative runs. Tokenizer and generation limits are held constant across
+the main sweep, with quantization controls retained in configuration for
+alternative runs. The tokenizer and generation limits are kept constant between
 baselines and speculative runs to preserve paired comparability.
 
 \paragraph{Baselines.}
@@ -35,7 +35,7 @@ For a speculative cycle, we model runtime as
 T_{\text{cycle}} = k\,t_{\text{draft}} + t_{\text{verify}} + n_{\text{launch}}\,t_{\text{launch}},
 \end{equation}
 where $n_{\text{launch}}\,t_{\text{launch}}$ captures host-side kernel-launch
-overhead. With successful graph replay, launch cost is reduced to a lower
+overhead. With successful graph replay, the launch cost is reduced to a lower
 replay overhead term:
 \begin{equation}
 T^{\text{graph}}_{\text{cycle}} \approx k\,t_{\text{draft}} + t_{\text{verify}} + n_{\text{replay}}\,t_{\text{replay}},
@@ -46,14 +46,14 @@ results reflect fallback execution rather than sustained graph replay. A
 separate paired GPU-optimization toggle microbenchmark (12 matched samples,
 $k{=}8$) reports mean TPOT 32.84 ms/token (off) versus 33.30 ms/token (on),
 with mean delta $+0.46$ ms/token (95\% CI $[0.14, 0.83]$), indicating no
-TPOT benefit under the current capture conditions.
+TPOT benefits under the current capture conditions.
 
 \paragraph{Dynamic-scheduling bottleneck in native PyTorch paths.}
-Fallback eager execution should not be viewed only as an implementation miss;
-it reflects a broader systems challenge for end-to-end dynamic speculation.
+Fallback eager execution should not be viewed only as an implementation miss.
+It reflects a broader systems challenge for end-to-end dynamic speculation.
 When acceptance-dependent control flow, sampling branches, and cache updates
 change per step, preserving lossless semantics often requires CPU-visible
-orchestration between kernels. Without deeper runtime/kernel redesign, this
+orchestration between kernels. Without a deeper runtime/kernel redesign, this
 serial control overhead can erase expected gains from speculative parallelism,
 as also emphasized in modern inference runtime roadmaps for dynamic
 scheduling.
@@ -98,12 +98,12 @@ can materially reduce or negate speculative speedup on constrained hardware.
 }
 \caption{Vanilla speculative decoding implementation flow.
 The target model remains the verifier of record; accepted draft prefixes are
-committed and caches are cropped to preserve exact target-consistent decoding.}
+committed, and caches are cropped to preserve exact target-consistent decoding.}
 \label{fig:specdec-impl-flow}
 \end{figure}
 
 \paragraph{Regimes and outputs.}
 The same verification core is used for deterministic and stochastic modes,
-with only sampling policy changed by regime parameters.
+with only the sampling policy changed by regime parameters.
 Each configuration writes a dedicated CSV artifact with per-sample runtime,
 token counts, and quality-relevant outputs.

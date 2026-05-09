@@ -11,7 +11,7 @@ speed--quality tradeoff.
 \begin{table*}[t]
 \centering
 \caption{RTX4090 CUDA-graph run family summary (Qwen2.5-3B target).
-$S$ is ratio-of-means paired speedup against regime-matched baselines.
+$S$ is the ratio-of-means paired speedup against regime-matched baselines.
 CI$_S$ is the paired bootstrap 95\% interval (10k resamples over matched
 samples); $p_S$ is one-sided significance for $H_0\!:\,S\le 1$.
 $\alpha$ is token-level acceptance; $B_{\text{eff}}$ is accepted tokens per
@@ -42,13 +42,13 @@ baseline, stoch      & 1.0000 & -- & -- & -- & -- & -- & -- & -- \\
 
 Figure~\ref{fig:specdec-vs-baseline-metrics} complements
 Table~\ref{tab:headline} with a visual baseline-relative view across all
-configurations, including speedup, latency/throughput deltas, token-timing
+configurations, including speedup, latency/throughput deltas, and token-timing
 deltas, and acceptance dynamics.
 
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.98\textwidth]{figures/specdec_configs_vs_baseline_metrics.pdf}
-\caption{Speculative-decoding metrics for all RTX4090 configurations relative
+\caption{Speculative-decoding metrics for all RTX~4090 configurations relative
 to regime-matched baseline. Top-left: paired speedup $S$ (baseline at
 $S{=}1$). Top-right: mean latency reduction and throughput gain percentages vs
 baseline. Bottom-left: TTFT and TPOT percentage deltas vs baseline. Bottom-right:
@@ -59,7 +59,7 @@ configurations.}
 
 \subsection{RQ1: Does speculative decoding accelerate inference?}
 
-Across the RTX4090 CUDA-graph run family, all 12 speculative configurations
+Across the RTX~4090 CUDA-graph run family, all 12 speculative configurations
 exceed $S{=}1$, with speedups from $1.7773$ to $3.0674$. The best setting is
 0.5B with $k{=}4$ in deterministic mode. Regime-matched baseline files report
 mean latencies of 11.41s (deterministic) and 11.65s (stochastic) per sample,
@@ -85,7 +85,7 @@ draft is slightly better on mean speedup (mean $S$: 2.4151 for 0.5B versus
 Table~\ref{tab:bottleneck} summarizes the deterministic endpoints of this
 non-linear trend and highlights the systems-level interpretation: higher
 $B_{\text{eff}}$ does not guarantee higher $S$ once per-cycle drafting and
-verification overhead dominate.
+verification overhead dominates.
 
 \begin{table}[t]
 \centering
@@ -109,11 +109,9 @@ verification overhead dominate.
 Deterministic decoding is faster in 5 of 6 matched draft--$k$ pairs. The
 deterministic advantage ranges from $-0.0135$ to $0.1280$ in absolute $S$ and
 averages $0.0568$ across the six matched pairs; the single exception is
-0.5B, $k{=}16$, where stochastic is slightly faster. This still supports a
-deployment preference for deterministic regime when latency is primary and
-output diversity is not required.
+0.5B, $k{=}16$, where stochastic is slightly faster. This still supports a preference for a deterministic deployment regime when latency is primary, and output diversity is not required.
 
-At systems level, stochastic decoding adds sampling and rejection-check
+At the system level, stochastic decoding adds sampling and rejection-check
 overheads that are weakly amortized on this hardware profile. With large
 distribution processing and limited memory bandwidth (1008~GB/s), these costs
 can offset speculative parallelism gains, consistent with the deterministic
@@ -145,7 +143,7 @@ bootstrap protocol as Table~\ref{tab:headline}.
 
 \begin{table*}[t]
 \centering
-\caption{ACSD results on RTX4090 CUDA-graph run family, with quality deltas
+\caption{ACSD results on RTX~4090 CUDA-graph run family, with quality deltas
 relative to regime-matched baseline quality anchors inferred from the
 fixed-policy summary table.}
 \label{tab:acsd-headline}
@@ -175,7 +173,7 @@ Aggregated adaptive-$k$ usage shows that ACSD spends most accepted blocks at
 larger settings near the sweet spot boundary: deterministic run share is
 $k{=}4$ (40.74\%) and $k{=}5$ (46.18\%), with only 1.73\% at $k\in\{1,2\}$;
 stochastic run share is $k{=}4$ (43.17\%) and $k{=}5$ (42.66\%), with 1.75\%
-at $k\in\{1,2\}$. This pattern supports the controller intent of staying near
+at $k\in\{1,2\}$. This pattern supports the controller's intent of staying near
 high-throughput operating points while retaining low-$k$ escape routes.
 
 \begin{table}[t]
@@ -208,7 +206,7 @@ not a peak-throughput optimizer.
 
 The current evidence supports a practical recommendation: use deterministic
 speculative decoding with a smaller fixed block ($k{=}4$) when peak throughput
-is the primary target, and prefer the 0.5B draft for this hardware profile.
+is the primary target, and prefers the 0.5B draft for this hardware profile.
 ACSD adds robustness-oriented control with strong baseline-relative speedups
 and low fallback rates, but fixed $k{=}4$ remains the fastest observed operating
 point in this run family.
