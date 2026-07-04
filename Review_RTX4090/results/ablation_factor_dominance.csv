@@ -1,0 +1,10 @@
+metric,factor,dominance_score
+speedup,k,0.2771629117116098
+speedup,max_new_tokens,0.019945497000658126
+speedup,prompt_bucket,0.20610988839594377
+spec_latency_s,k,0.05309144251300457
+spec_latency_s,max_new_tokens,0.7149266635841259
+spec_latency_s,prompt_bucket,0.04357685452970487
+alpha,k,0.017604786057425183
+alpha,max_new_tokens,0.03669515794337277
+alpha,prompt_bucket,0.3264887084813549
