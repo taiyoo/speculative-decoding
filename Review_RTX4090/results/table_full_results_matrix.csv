@@ -1,0 +1,7 @@
+config,draft,k,regime,S,alpha,B_eff,T_mean_s,R_tok_mean,TTFT_mean_ms,TPOT_mean_ms,gsm8k,mmlu,cnndm,gpu_graph_mode,gpu_graph_capture_rate
+0.5B_k4_deterministic,0.6B,4,deterministic,2.8548,0.3362,1.33,4.8881,24.69,132.57,41.23,3.0,65.2,11.5,captured,1.0
+0.5B_k4_stochastic,0.6B,4,stochastic,2.4798,0.2672,1.06,5.6196,22.15,134.54,45.51,3.67,64.2,11.87,captured,1.0
+0.5B_k8_deterministic,0.6B,8,deterministic,1.9648,0.2378,1.86,7.1024,17.91,204.99,58.76,3.0,65.4,14.04,captured,1.0
+0.5B_k8_stochastic,0.6B,8,stochastic,1.6869,0.1916,1.5,8.2612,16.21,207.82,64.67,4.67,64.4,13.53,captured,1.0
+0.5B_k16_deterministic,0.6B,16,deterministic,1.1091,0.1292,1.96,12.5817,12.1,349.58,94.24,1.33,65.4,14.92,captured,1.0
+0.5B_k16_stochastic,0.6B,16,stochastic,0.9719,0.1082,1.64,14.339,10.74,354.82,106.03,3.0,65.4,14.79,captured,1.0
