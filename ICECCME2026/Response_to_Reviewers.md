@@ -14,9 +14,9 @@ We thank all reviewers for the constructive feedback. Below, each point follows 
 #### R1-1
 Reviewer Comment: ACSD appears more like a robustness mechanism than a true performance improvement.
 
-Author Response: We agree. We now explicitly frame ACSD as a tail-latency and runtime-stability controller rather than a peak-throughput optimizer.
+Author Response: We agree. We now explicitly frame the adaptive-$k$ policy as a tail-latency and runtime-stability controller rather than a peak-throughput optimizer.
 
-Author Action: Revised framing in Introduction, ACSD, and Discussion sections; removed language implying universal throughput superiority.
+Author Action: Revised framing in Introduction, Implementation/Results adaptive-$k$ notes, and Discussion; removed language implying universal throughput superiority.
 
 #### R1-2
 Reviewer Comment: Scope is limited (single GPU and single model family), so generalization is unclear.
@@ -28,9 +28,9 @@ Author Action: Added RTX5090-laptop results, retained Qwen2.5-family RTX4090 fin
 #### R1-3
 Reviewer Comment: CUDA-graph discussion was unconvincing because prior capture-rate reporting implied no effective benefit.
 
-Author Response: We clarified this point and removed over-interpretation.
+Author Response: We agree and further narrowed this discussion.
 
-Author Action: Updated the runtime discussion to separate graph capability from guaranteed end-to-end gain, and made runtime-path dependence explicit.
+Author Action: Reduced CUDA-graph text to a runtime implementation note, explicitly stating that capture status does not imply standalone speedup benefit; retained only end-to-end trend claims and runtime-path dependence.
 
 ### Reviewer 2
 
@@ -46,7 +46,7 @@ Reviewer Comment: ACSD section needs stronger validation and less position-paper
 
 Author Response: Agreed. We reduced speculative narrative and tightened empirical interpretation.
 
-Author Action: Revised ACSD section to emphasize bounded, parameter-sensitive behavior and to avoid universal claims over fixed-k policies.
+Author Action: Further condensed the adaptive-$k$ run-set discussion to an evidence-first summary (ablation ranges, corrected paired-test outcomes, and bounded deployment guidance), and removed formal/controller exposition that was not required for the paper's main claims.
 
 #### R2-3
 Reviewer Comment: Presentation should be less repetitive and less overstated.
@@ -76,14 +76,14 @@ Reviewer Comment: Include clearer comparison context with related methods.
 
 Author Response: Agreed.
 
-Author Action: Updated Related Work positioning and clarified ACSD relative to training-heavy or architecture-modifying alternatives.
+Author Action: Updated Related Work positioning and clarified adaptive-$k$ policy framing relative to training-heavy or architecture-modifying alternatives.
 
 #### R3-3
 Reviewer Comment: Abstract formatting suggestion (all-bold text).
 
-Author Response: We respectfully did not adopt this change because it conflicts with standard IEEE style conventions.
+Author Response: We adopted this formatting adjustment to match the conference template used for camera-ready preparation.
 
-Author Action: Kept IEEE-compliant abstract formatting while revising abstract content for clarity and scope calibration.
+Author Action: Updated the abstract to use all-bold formatting, including bold equations, while preserving the revised technical content and scope calibration.
 
 ### Additional Clarification: Model-Family Applicability
 
@@ -99,7 +99,7 @@ Reviewer Comment: Core concern is claim strength versus evidence breadth.
 
 Author Response: We aligned claims to evidence.
 
-Author Action: Narrowed contribution claims, expanded hardware/model evidence, increased statistical transparency, and positioned ACSD as a stability-oriented mechanism with bounded claims.
+Author Action: Narrowed contribution claims, expanded hardware/model evidence, increased statistical transparency, and positioned the adaptive-$k$ run set as a stability-oriented mechanism with bounded claims.
 
 ## Detailed Point-by-Point Mapping
 
@@ -110,9 +110,9 @@ Author Action: Narrowed contribution claims, expanded hardware/model evidence, i
 | R1-1 | Experimental design is clear and controlled (strength). | Thank you. We retained and emphasized the controlled protocol with frozen manifests and matched baselines. | Sec. 02 (Experimental Protocol), Sec. 01 (Contributions) |
 | R1-2 | Larger k reduces speedup despite larger accepted blocks (strength). | Confirmed and re-reported with revised Qwen3 numbers. We now explicitly present the overhead inflection interpretation. | Sec. 06 (RQ2), Table headline for RTX4090 |
 | R1-3 | Deterministic decoding is usually faster than stochastic (strength). | Confirmed with revised fixed-k matrix and explicit per-k deltas. | Sec. 06 (RQ3), Table headline for RTX4090 |
-| R1-4 | ACSD does not beat best fixed setting; reads as robustness mechanism. | We explicitly reframed ACSD as a stability/guardrail policy, not a peak-throughput optimizer. Claims were narrowed accordingly. | Sec. 01 (Introduction framing), Sec. 07 (ACSD), Sec. 05 (Discussion/Conclusion) |
+| R1-4 | ACSD does not beat best fixed setting; reads as robustness mechanism. | We keep the reviewer term ACSD here, but in the manuscript we reframe it as an adaptive-$k$ run set (a policy layer, not a new algorithm). Claims were narrowed accordingly. | Sec. 01 (Introduction framing), Sec. 04/06 (adaptive-$k$ notes), Sec. 05 (Discussion/Conclusion) |
 | R1-5 | Scope limited to one GPU and one model family. | Addressed by adding cross-hardware comparison (RTX4090 and RTX5090-laptop) with Qwen3-family results and portability discussion. | Sec. 02 (Hardware/model scope), Sec. 06 (RQ4), Sec. 05 (Threats to validity) |
-| R1-6 | CUDA graph discussion was unconvincing due to zero capture in prior run family. | Revised text now reports runtime-path dependence and avoids over-claiming graph benefits. We explicitly note that capture status differs by run family and does not guarantee end-to-end gains. | Sec. 04 (CUDA-graph overhead model and observed effect), Sec. 05 (Threats) |
+| R1-6 | CUDA graph discussion was unconvincing due to zero capture in prior run family. | Revised text now treats CUDA graphs as an implementation detail, avoids standalone graph-benefit claims, and keeps only end-to-end trend-level claims with explicit runtime-path dependence. | Sec. 04 (Implementation), Sec. 05 (Threats) |
 
 ## Reviewer #2
 
@@ -120,15 +120,15 @@ Author Action: Narrowed contribution claims, expanded hardware/model evidence, i
 |---|---|---|---|
 | R2-1 | Controlled methodology and reproducibility are strong (strength). | Thank you. We preserved frozen-manifest paired design and clarified statistical reporting details. | Sec. 02, Sec. 03, Sec. 06 |
 | R2-2 | Non-monotonic acceptance vs speedup relationship is useful (strength). | Retained and updated with revised Qwen3 fixed-k evidence and concise systems interpretation. | Sec. 06 (RQ2) |
-| R2-3 | Transparent ACSD framing as tail-latency guardrail is appropriate (strength). | Kept and strengthened this framing, removing throughput-maximization language. | Sec. 01, Sec. 07, Sec. 05 |
-| R2-4 | Novelty is limited; ACSD is an engineering policy, not a new algorithm. | Addressed by explicitly positioning contribution as empirical systems characterization and policy guidance, not a fundamentally new decoding algorithm. | Abstract, Sec. 01 (positioning/contributions), Sec. 05 (Novelty and scope) |
+| R2-3 | Transparent ACSD framing as tail-latency guardrail is appropriate (strength). | Kept and strengthened this framing; in manuscript text we rename ACSD to adaptive-$k$ run set to avoid implying a new standalone algorithm. | Sec. 01, Sec. 04/06, Sec. 05 |
+| R2-4 | Novelty is limited; ACSD is an engineering policy, not a new algorithm. | Addressed by explicitly positioning contribution as empirical systems characterization and policy guidance, and by renaming ACSD to adaptive-$k$ run set in manuscript text to avoid algorithmic over-claiming. | Abstract, Sec. 01 (positioning/contributions), Sec. 05 (Novelty and scope) |
 | R2-5 | Scope is narrow (single GPU, single model family). | Addressed by adding a second hardware profile (RTX5090-laptop) and trend-transfer analysis; claims are now bounded to trend portability versus absolute gains. | Sec. 02, Sec. 06 (RQ4), Sec. 05 (Threats/Conclusion) |
 | R2-6 | Missing variance across independent runs/seeds. | Addressed with seed-level mean+-std reporting for fixed-k runs. | Sec. 06 (Variance subsection) |
 | R2-7 | TTFT and TPOT defined but not deeply analyzed. | Addressed by adding TTFT/TPOT values in result tables and explicit discussion of token-timing behavior across k and regimes. | Sec. 06 (tables and RQ3 + variance subsection) |
 | R2-8 | Summarization quality relies too much on ROUGE-L. | Partially addressed: quality discussion now references expanded multi-metric ablation artifacts (ROUGE-L, BLEU, BERTScore), while acknowledging remaining limits. | Sec. 06 (statistical detail paragraph), Sec. 05 (Evaluation breadth) |
 | R2-9 | Statistical testing details were light (paired tests, correction, effect). | Addressed by specifying corrected paired tests (Holm-Bonferroni) and clarifying test usage in revised reporting. | Sec. 02 (Endpoints), Sec. 06 (statistical detail), Sec. 03 |
-| R2-10 | ACSD section reads like position paper; little ablation on thresholds/windows. | Addressed with explicit ablation-backed interpretation and narrower claims; section now states parameter sensitivity and non-uniform superiority. | Sec. 07 (Revised empirical interpretation), Sec. 06 (ACSD comparison note) |
-| R2-11 | Repetitiveness in Sec. VII-VIII and overstated breadth. | Addressed by tightening ACSD/Discussion narrative and reducing universal language in claims. | Sec. 07 and Sec. 05 rewrites |
+| R2-10 | ACSD section reads like position paper; little ablation on thresholds/windows. | Addressed with a condensed, ablation-backed summary and narrower claims; in manuscript text ACSD is expressed as adaptive-$k$ run-set behavior (threshold-sensitive and non-uniformly superior), with deployment guidance kept brief. | Sec. 06 (adaptive-$k$ comparison note), Sec. 05 (discussion summary) |
+| R2-11 | Repetitiveness in Sec. VII-VIII and overstated breadth. | Addressed by integrating concise notes across implementation/results/discussion and reducing universal language in claims; terminology is shifted from ACSD to adaptive-$k$ run set in manuscript text. | Sec. 04, Sec. 06, Sec. 05 rewrites |
 | R2-12 | Grammar issue: "does ... delivers". | Corrected. | Sec. 01 (RQ wording) |
 | R2-13 | Figure 2 too dense for grayscale print. | Partially addressed in text prioritization; figure-level redesign is planned for final camera-ready visual pass. | Pending figure refinement in figures assets |
 
@@ -137,8 +137,8 @@ Author Action: Narrowed contribution claims, expanded hardware/model evidence, i
 | ID | Reviewer Comment | Response / Action Taken | Revision Location |
 |---|---|---|---|
 | R3-1 | Practical contribution is clear, but novelty/theoretical contribution is unclear. | Addressed by clearly narrowing novelty claims and strengthening formal systems interpretation (latency-overhead/acceptance relationship and portability limits). | Abstract, Sec. 01, Sec. 05 |
-| R3-2 | Mention and compare with other methods. | Addressed in related work positioning and clearer distinction from Medusa/EAGLE/cascade approaches; we clarify where ACSD sits relative to training-heavy and architecture-modifying methods. | Sec. 01b (Related Work) |
-| R3-3 | Abstract formatting request: every word bolded. | Not adopted. IEEE conference style does not require bolded abstract text; we keep standard format for compliance. | conference_101719.tex class/style compliance |
+| R3-2 | Mention and compare with other methods. | Addressed in related work positioning and clearer distinction from Medusa/EAGLE/cascade approaches; we clarify where the ACSD (renamed as adaptive-$k$ run set in manuscript text) framing sits relative to training-heavy and architecture-modifying methods. | Sec. 01b (Related Work) |
+| R3-3 | Abstract formatting request: every word bolded. | Adopted for camera-ready according to the provided conference template, including bold mathematical expressions in the abstract. | sec/00_abstract.tex, conference_101719.tex class/style compliance |
 | R3-4 | Add brief related-work introduction to help readability. | Addressed by maintaining and refining dedicated related-work section and manuscript flow from introduction to related work. | Sec. 01, Sec. 01b |
 
 ## Global claim updates made in this revision
@@ -147,6 +147,6 @@ Author Action: Narrowed contribution claims, expanded hardware/model evidence, i
 |---|---|
 | Contribution scope | Reframed from universal acceleration claim to reproducible deployment characterization and policy guidance. |
 | Hardware generalization | Added cross-hardware evidence (RTX4090 and RTX5090-laptop) and trend-vs-absolute portability distinction. |
-| ACSD claim strength | Reframed as robustness/stability control with bounded, non-universal benefits. |
+| Adaptive-$k$ claim strength | Reframed as robustness/stability control with bounded, non-universal benefits. |
 | Statistical transparency | Added seed-level variance and corrected paired-test reporting references. |
 | Deployment guidance | Recommendation now explicitly conditional on hardware/runtime profile. |

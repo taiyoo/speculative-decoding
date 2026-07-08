@@ -38,7 +38,7 @@ Article: \{article\}\\
 Summary:
 \end{quote}
 \paragraph{Objective and hypotheses}
-The study quantifies practical speculative-decoding gains on consumer hardware
+This study quantifies practical speculative-decoding gains on consumer hardware
 under fixed data and prompt controls.
 We test four hypotheses:
 \begin{itemize}
@@ -54,7 +54,7 @@ We test four hypotheses:
 \end{itemize}
 
 \paragraph{Hardware and software controls}
-This study reports two consumer-GPU run families:
+We report two consumer-GPU run families:
 an NVIDIA RTX4090 desktop profile and an RTX5090-laptop profile.
 Both use the same Python runtime entry points, prompt templates,
 tokenizer settings, and serial execution policy to minimize cross-run
@@ -81,13 +81,32 @@ Software stack & PyTorch + Transformers (pinned env) \\
 \end{tabular}
 \end{table}
 
-\paragraph{CUDA-graph runtime setup}
-To reduce per-step launch overhead, we use a CUDA-graph-capable verify path.
-For each $k$, we keep fixed step shapes, pre-allocate static draft/verify
-buffers, and warm up before optional \texttt{torch.cuda.CUDAGraph} capture.
-During decoding, each cycle updates buffer contents and replays the graph when
-shape guards hold; otherwise, it falls back to eager execution. This preserves
-output semantics while reducing host-side overhead in short speculative cycles.
+\begin{table}[t]
+\centering
+\caption{Hardware profile for the RTX5090-laptop run family.}
+\label{tab:hw-profile-5090-laptop}
+\small
+\begin{tabular}{ll}
+\hline
+\textbf{Component} & \textbf{Specification} \\
+\hline
+GPU & NVIDIA GeForce RTX 5090 Laptop GPU \\
+GPU memory & 24 GB GDDR7 \\
+Memory bandwidth & 896 GB/s \\
+CUDA cores & 10496 \\
+Architecture & NVIDIA Blackwell \\
+Power profile & Laptop TGP class up to 150~W (OEM-dependent) \\
+Software stack & PyTorch + Transformers (pinned env) \\
+\hline
+\end{tabular}
+\end{table}
+
+\paragraph{Runtime setup}
+We keep fixed step shapes, pre-allocate static draft/verify buffers, and warm
+up the inference path before measurement. During decoding, each cycle updates
+buffer contents under shape guards and falls back to eager execution when
+required. This preserves output semantics and reduces avoidable runtime-path
+variance in short speculative cycles.
 
 \paragraph{Model pairing}
 We evaluate two same-family pairings.
@@ -104,8 +123,8 @@ We treat the three tasks as distinct decoding-entropy regimes to interpret
 acceptance behavior: GSM8K is a lower-entropy chain reasoning with concentrated
 next-token mass; MMLU is medium-entropy constrained QA; CNN/DailyMail is
 higher-entropy open-ended summarization. This framing is used only for
-interpretation of acceptance and quality trends, not as an additional
-optimization objective.
+interpretation of acceptance and quality trends, not as an optimization
+objective.
 
 \paragraph{Decoding regimes and grid}
 Two regimes are evaluated:
@@ -126,4 +145,4 @@ task-level quality deltas, time to first token (TTFT), time per output token
 (TPOT), and 99th-percentile (P99) latency. Statistical reporting uses
 seed-level summaries (mean$\pm$std), paired
 bootstrap confidence intervals where applicable, and paired t-tests with
-Holm-Bonferroni correction for multi-metric ACSD comparisons.
+Holm-Bonferroni correction for multi-metric adaptive-$k$ run-set comparisons.

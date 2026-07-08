@@ -32,24 +32,13 @@ Both draft and target states are tracked with key-value (KV) caches throughout
 the decode loop.
 Figure~\ref{fig:specdec-impl-flow} summarizes this implementation flow.
 
-\paragraph{CUDA-graph overhead model and observed effect}
-For a speculative cycle, we model runtime as
-\begin{equation}
-T_{\text{cycle}} = k\,t_{\text{draft}} + t_{\text{verify}} + n_{\text{launch}}\,t_{\text{launch}},
-\end{equation}
-where $n_{\text{launch}}\,t_{\text{launch}}$ captures host-side kernel-launch
-overhead. With successful graph replay, the launch cost is reduced to a lower
-replay overhead term:
-\begin{equation}
-T^{\text{graph}}_{\text{cycle}} \approx k\,t_{\text{draft}} + t_{\text{verify}} + n_{\text{replay}}\,t_{\text{replay}},
-\qquad t_{\text{replay}} \ll t_{\text{launch}}.
-\end{equation}
-In the Qwen3 run families, graph-capture metadata differs by hardware:
-the RTX4090 fixed-policy matrix reports stable captured execution, whereas
+\paragraph{CUDA-graph runtime note}
+In the Qwen3 run families, graph-capture metadata differs by hardware.
+The RTX4090 fixed-policy matrix reports stable captured execution, whereas
 RTX5090-laptop sensitivity runs show that graph-enabled toggles do not
-guarantee end-to-end latency gains under all runtime conditions. This is why
-we report both absolute speedup and component-level timing rather than
-assuming graph capture alone explains throughput behavior.
+consistently improve end-to-end latency. We therefore treat CUDA-graph usage
+as an implementation detail rather than a standalone performance claim, and
+base conclusions on end-to-end fixed-policy speedup trends.
 
 \paragraph{Dynamic-scheduling bottleneck in native PyTorch paths}
 Fallback eager execution should not be viewed only as an implementation miss.
@@ -67,6 +56,14 @@ study. Because the draft and target tokenizers are isomorphic, speculative
 verification avoids per-step vocabulary alignment and token translation.
 Cross-tokenizer pipelines introduce additional CPU-side mapping overhead that
 can materially reduce or negate speculative speedup on constrained hardware.
+
+\paragraph{Adaptive-$k$ implementation note}
+For adaptive-$k$ runs, we reuse the same draft--verify core and switch only the policy
+controller: $k$ is adapted online from recent acceptance behavior with guarded
+fallback to stable paths when acceptance collapses. We treat the adaptive-$k$
+run set as a runtime
+policy layer over the fixed-policy implementation, not as a separate decoding
+algorithm.
 
 \begin{figure}[t]
 \centering

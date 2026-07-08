@@ -15,6 +15,8 @@ While policy ordering trends transfer from RTX4090 to RTX5090-laptop,
 absolute speedup magnitudes do not.
 This supports a practical interpretation: generalization claims should emphasize
 portable trends and decision rules, not fixed throughput numbers.
+In adaptive-$k$ runs, threshold-sensitive gains were competitive in some
+regions but non-uniform, reinforcing a stability-oriented interpretation.
 
 \subsection{Novelty and contribution scope}
 
@@ -30,7 +32,7 @@ choices on consumer hardware.
 To strengthen rigor, we report seed-level mean$\pm$std summaries,
 time to first token (TTFT), time per output token (TPOT), 99th-percentile
 (P99) latency, and corrected paired tests.
-This improves repeated-run variability reporting and statistical clarity.
+These additions improve repeated-run variability reporting and statistical clarity.
 We also expand quality reporting beyond a single summarization metric in the
 ablation artifacts (ROUGE-L, BLEU, and BERTScore), while acknowledging that
 these still do not fully capture factuality or task-specific utility.
@@ -63,7 +65,7 @@ Cross-hardware validation on RTX5090-laptop preserves the same policy ordering
 trend but not the same absolute speedups, emphasizing that portability must be
 interpreted at the trend level.
 
-ACSD remains useful as an adaptive policy layer for runtime-stability trade-offs,
+The adaptive-$k$ run set remains useful as a runtime-stability policy layer,
 but is not presented as a universal throughput optimizer.
 Future work will expand hardware diversity, include additional model families,
 and evaluate longer-context and richer quality diagnostics.

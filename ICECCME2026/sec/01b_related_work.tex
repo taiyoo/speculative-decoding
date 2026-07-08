@@ -41,7 +41,19 @@ block-diffusion drafter conditioned on target hidden features and reports up
 to $5\times$ speedup over autoregressive baselines on H200/B200 hardware.
 
 \paragraph{Cascaded speculative control}
-Recent advancements in cascaded architectures attempt to dynamically balance inference efficiency and generation quality. For instance, CAS-Spec constructs a hierarchy of draft stages on-the-fly from a single target model using Dynamically Switchable Inference Acceleration (DSIA) strategies, such as layer sparsity and activation quantization, coordinated by a Dynamic Tree Cascade (DyTC) algorithm~\cite{Ning2025CASSpec}. Similarly, Speculative Cascades employs a hybrid approach with a deferral rule, invoking larger, costlier models only for complex inputs while using smaller models for simpler tasks, thereby optimizing the cost-quality trade-off~\cite{Narasimhan2024FasterCascades}. While these methods report strong acceleration, they typically require target-side architectural modification, additional training, or complex serving infrastructure. In contrast, our ACSD framing is a training-free, architecture-agnostic runtime controller that adapts online decisions from acceptance signals. Its objective is practical runtime stability under constrained consumer-GPU budgets rather than theoretical peak throughput on data-center accelerators.
+Recent cascaded architectures dynamically balance inference cost and generation
+quality. CAS-Spec builds an on-the-fly hierarchy of draft stages from a single
+target model using Dynamically Switchable Inference Acceleration (DSIA)
+strategies (for example, layer sparsity and activation quantization),
+coordinated by a Dynamic Tree Cascade (DyTC) algorithm~\cite{Ning2025CASSpec}.
+Speculative Cascades applies a deferral rule, invoking larger models only for
+hard inputs while routing easier cases to smaller models~\cite{Narasimhan2024FasterCascades}.
+Although these methods report strong acceleration, they typically require
+target-side architectural changes, extra training, or complex serving stacks.
+By contrast, our adaptive-$k$ policy framing is a training-free, architecture-agnostic runtime
+controller that adapts decisions online from acceptance signals, targeting
+runtime stability under consumer-GPU constraints rather than peak data-center
+throughput.
 
 \paragraph{Precision and systems deployment}
 Deployment-oriented inference work shows that quantization and memory traffic
@@ -67,5 +79,5 @@ speculative decoding with same-family model pairing (Qwen3-4B target,
 competing with data-center throughput claims, we characterize practical
 operating points across desktop RTX4090 and RTX5090-laptop profiles,
 including acceptance dynamics, quality drift, and runtime-sensitive
-configuration choices. We then use these results to evaluate adaptive
-cascaded speculative decoding (ACSD) as a runtime-stability extension.
+configuration choices. We then use these results to evaluate an adaptive-$k$
+run set as a runtime-stability extension.
