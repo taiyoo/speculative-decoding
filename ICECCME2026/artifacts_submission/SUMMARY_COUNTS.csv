@@ -1,0 +1,6 @@
+group,csv_files,other_files
+qwen25_rtx4090,23,8
+qwen25_rtx5090,14,0
+qwen25_rtx5090_laptop,13,0
+qwen3_rtx4090,30,2
+qwen3_rtx5090_laptop,22,6

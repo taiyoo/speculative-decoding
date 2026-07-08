@@ -1,0 +1,7 @@
+config,draft,k,regime,T_mean_s,T_median_s,R_tok_mean,TTFT_mean_ms,TPOT_mean_ms,total_tokens,n_samples,alpha,B_eff,total_proposed,total_accepted,n_verify_steps,S,gsm8k,mmlu,cnndm,delta_gsm8k,delta_mmlu,delta_cnndm,gpu_graph_mode,gpu_graph_capture_rate
+0.5B_k4_deterministic,0.6B,4,deterministic,4.8881,3.3902,24.69,132.57,41.23,124800,1000,0.3362,1.33,212989,71599,53829,2.8548,3.0,65.2,11.5,-32.33,0.8,-8.08,captured,1.0
+0.5B_k4_stochastic,0.6B,4,stochastic,5.6196,3.3383,22.15,134.54,45.51,124800,1000,0.2672,1.06,241084,64427,60935,2.4798,3.67,64.2,11.87,-32.33,0.2,-7.47,captured,1.0
+0.5B_k8_deterministic,0.6B,8,deterministic,7.1024,4.5144,17.91,204.99,58.76,124800,1000,0.2378,1.86,342866,81550,43933,1.9648,3.0,65.4,14.04,-32.33,1.0,-5.54,captured,1.0
+0.5B_k8_stochastic,0.6B,8,stochastic,8.2612,5.0057,16.21,207.82,64.67,124800,1000,0.1916,1.5,392466,75186,50288,1.6869,4.67,64.4,13.53,-31.33,0.4,-5.81,captured,1.0
+0.5B_k16_deterministic,0.6B,16,deterministic,12.5817,6.3788,12.1,349.58,94.24,124800,1000,0.1292,1.96,643257,83084,42430,1.1091,1.33,65.4,14.92,-34.0,1.0,-4.66,captured,1.0
+0.5B_k16_stochastic,0.6B,16,stochastic,14.339,6.8708,10.74,354.82,106.03,124800,1000,0.1082,1.64,720088,77910,47584,0.9719,3.0,65.4,14.79,-33.0,1.4,-4.55,captured,1.0

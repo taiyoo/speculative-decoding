@@ -1,0 +1,16 @@
+baseline_policy,compare_policy,metric,mean_delta,ci95_low,ci95_high,ci_excludes_zero,n_pairs,bootstrap_samples
+fifo_mixed_window,full_rules_continuous,mean_latency_s,1.605673500493027,1.4327585570583772,1.779598943191811,True,75,20000
+fifo_mixed_window,full_rules_continuous,p90_latency_s,3.4400527843941684,3.0833131638666647,3.8093447166887358,True,75,20000
+fifo_mixed_window,full_rules_continuous,mean_wait_s,3.4223502766081593,3.1424204801325892,3.7059635579478925,True,75,20000
+fifo_mixed_window,full_rules_continuous,p90_wait_s,6.346690211032417,5.900054462160927,6.780495871660488,True,75,20000
+fifo_mixed_window,full_rules_continuous,throughput_rps,-0.0018683191341376077,-0.0024624323197180494,-0.001298417728725598,True,75,20000
+fifo_mixed_window,lane_split_window,mean_latency_s,0.2433400418996669,0.1706137075129582,0.3165041107960863,True,75,20000
+fifo_mixed_window,lane_split_window,p90_latency_s,1.205078617527375,1.0370373647588973,1.3786991681533822,True,75,20000
+fifo_mixed_window,lane_split_window,mean_wait_s,1.6174397991049563,1.4880820499599532,1.7441949129991334,True,75,20000
+fifo_mixed_window,lane_split_window,p90_wait_s,3.1258512124529734,2.935364073142868,3.3095030151474716,True,75,20000
+fifo_mixed_window,lane_split_window,throughput_rps,-0.0006688568219971088,-0.0011404614455632564,-0.0002284415605333114,True,75,20000
+fifo_mixed_window,length_similarity_window,mean_latency_s,1.3689911580209801,1.1890302894989482,1.5483177400225363,True,75,20000
+fifo_mixed_window,length_similarity_window,p90_latency_s,3.1703446751795528,2.7760942019653956,3.5635881071087523,True,75,20000
+fifo_mixed_window,length_similarity_window,mean_wait_s,3.014463307899007,2.7420534362607767,3.2852462831456264,True,75,20000
+fifo_mixed_window,length_similarity_window,p90_wait_s,5.808032893523908,5.320922425723106,6.288460207114144,True,75,20000
+fifo_mixed_window,length_similarity_window,throughput_rps,-0.001442013180229168,-0.00200198008717612,-0.0009308169920726448,True,75,20000

@@ -1,0 +1,3 @@
+config,draft,regime,primary_draft,rescue_draft,base_k,alpha,B_eff,tokens_per_sec,speedup,mean_rescue_steps,fallback_rate,gpu_graph_mode,gpu_graph_capture_rate,quality_gsm8k,quality_mmlu,quality_cnndm
+ACSD-deterministic,ACSD,deterministic,0.5B,1.5B,4,0.4123,1.77,32.61,0.0,0.698,0.016,pending,0.0,59.33,56.6,20.88
+ACSD-stochastic,ACSD,stochastic,0.5B,1.5B,4,0.397,1.69,31.08,0.0,0.843,0.022,pending,0.0,55.33,56.6,20.16

@@ -1,0 +1,5 @@
+baseline_condition,compare_condition,metric,median_delta_compare_minus_base,p90_delta_compare_minus_base,p10_delta_compare_minus_base,median_abs_delta,p90_abs_delta,n_pairs
+gpu_opt_off,gpu_opt_on,draft_elapsed_s,8.212150999999999,9.541898400000001,7.332640799999999,8.212150999999999,9.541898400000001,12
+gpu_opt_off,gpu_opt_on,verify_elapsed_s,1.572833,1.7926726,1.3775377000000002,1.572833,1.7926726,12
+gpu_opt_off,gpu_opt_on,latency_s,9.77455,11.381599999999999,8.67454,9.77455,11.381599999999999,12
+gpu_opt_off,gpu_opt_on,ttft_ms,8.344999999999999,79.40899999999998,-30.600000000000016,25.840000000000003,79.40899999999998,12
