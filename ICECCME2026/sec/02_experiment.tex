@@ -47,21 +47,23 @@ We test four hypotheses:
     \item \textbf{H2:} Increasing draft length from $k{=}4$ to $k{=}8$ improves
         speedup, while $k{=}16$ may reduce gains due to additional drafting
         and verification overhead.
-    \item \textbf{H3:} A larger draft (1.5B) achieves higher acceptance and higher
-        net speed than a smaller draft (0.5B).
+    \item \textbf{H3:} Increasing $k$ tends to improve accepted block size but can
+        reduce end-to-end speed once drafting/verification overhead dominates.
     \item \textbf{H4:} Deterministic decoding is more runtime-efficient and quality
         stable than stochastic decoding for the same draft and $k$.
 \end{itemize}
 
 \paragraph{Hardware and software controls}
-All experiments run on one NVIDIA RTX4090 (24GB VRAM) with a fixed
-software stack (PyTorch, Transformers, and pinned tokenizer settings). We use
-the same runtime entry points and prompt templates for all configurations, and
-run serially to avoid cross-run contention.
+This study reports two consumer-GPU run families:
+an NVIDIA RTX4090 desktop profile and an RTX5090-laptop profile.
+Both use the same Python runtime entry points, prompt templates,
+tokenizer settings, and serial execution policy to minimize cross-run
+contention. We keep software dependencies pinned within each run family and
+preserve frozen manifests for paired comparison.
 
 \begin{table}[t]
 \centering
-\caption{Hardware profile used for the RTX4090 run family.}
+\caption{Hardware profile for the desktop RTX4090 run family.}
 \label{tab:hw-profile}
 \small
 \begin{tabular}{ll}
@@ -88,10 +90,14 @@ shape guards hold; otherwise, it falls back to eager execution. This preserves
 output semantics while reducing host-side overhead in short speculative cycles.
 
 \paragraph{Model pairing}
-Target model: Qwen2.5-3B-Instruct.
-Draft models: Qwen2.5-0.5B-Instruct and Qwen2.5-1.5B-Instruct.
-All models are from the same family to minimize tokenizer mismatch and style drift.
-Each configuration processes the same fixed 1{,}000-prompt manifest.
+We evaluate two same-family pairings.
+For Qwen2.5, the target is Qwen2.5-3B-Instruct with
+Qwen2.5-0.5B-Instruct and Qwen2.5-1.5B-Instruct drafts on the RTX4090 run
+family. For Qwen3, the target is Qwen3-4B-Instruct with a
+Qwen3-0.6B-Instruct draft on RTX4090 and RTX5090-laptop run families.
+For each family, fixed-policy experiments sweep $k\in\{4,8,16\}$ under
+deterministic/stochastic regimes with regime-matched autoregressive baselines.
+All configurations process fixed manifests to preserve paired comparability.
 
 \paragraph{Task-entropy interpretation}
 We treat the three tasks as distinct decoding-entropy regimes to interpret
@@ -107,16 +113,17 @@ Two regimes are evaluated:
     \item \textbf{Deterministic:} greedy decoding ($T{=}0.0$, top-$p{=}1.0$; sampling disabled).
     \item \textbf{Stochastic:} sampling with $T{=}0.7$, top-$p{=}0.9$, and no top-$k$ truncation.
 \end{itemize}
-For each draft model, we sweep $k\in\{4,8,16\}$, producing
-12 speculative configurations. We also run one autoregressive baseline per
-regime for anchored latency and throughput reporting.
+For the primary fixed-policy matrix, we sweep $k\in\{4,8,16\}$ under both
+regimes (6 configurations), plus regime-matched autoregressive baselines.
 
 \paragraph{Endpoints}
 The primary endpoint is paired wall-clock speedup
-$S = L_{\text{AR}}/L_{\text{spec}}$ as reported by the experiment summary
+$S = L_{\text{autoregressive}}/L_{\text{spec}}$ as reported by the experiment summary
 artifact for each draft--$k$--regime combination.
 Secondary endpoints include acceptance rate $\alpha$, effective accepted block
-size $B_{\text{eff}}$, mean per-sample latency, throughput (tokens/s), and
-task-level quality deltas. Camera-ready statistical reporting uses paired
-bootstrap confidence intervals (10{,}000 resamples) and one-sided tests for
-$S{>}1$, with corrected pairwise winner tests.
+size $B_{\text{eff}}$, mean per-sample latency, throughput (tokens/s),
+task-level quality deltas, time to first token (TTFT), time per output token
+(TPOT), and 99th-percentile (P99) latency. Statistical reporting uses
+seed-level summaries (mean$\pm$std), paired
+bootstrap confidence intervals where applicable, and paired t-tests with
+Holm-Bonferroni correction for multi-metric ACSD comparisons.

@@ -3,88 +3,67 @@
 
 \subsection{Main empirical takeaways}
 
-Three findings are consistent in the current run family. First, speculative decoding
-provides consistent acceleration across all tested configurations
-($S>1$ throughout). Second, speedup declines as $k$ increases in this run
-family, with the strongest performance at $k{=}4$ and the weakest at
-$k{=}16$. Third, deterministic decoding outperforms stochastic decoding in 5 of
-6 matched draft--$k$ pairs.
+The Qwen2.5 and Qwen3 evidence supports three robust observations.
+First, on RTX4090, speculative decoding can provide substantial acceleration,
+but not for every setting; high-$k$ stochastic can drop below baseline.
+Second, speedup declines as $k$ increases, even when accepted block size grows.
+Third, deterministic decoding consistently outperforms stochastic decoding
+for matched $k$ in both run families.
 
-The measured ACSD extension follows the same direction: it remains strongly
-faster than autoregressive decoding in both regimes, but does not exceed the
-best fixed-policy throughput point (0.5B, $k{=}4$, deterministic). ACSD
-therefore appears most useful as a robustness-oriented control layer: mean
-latency is slightly above fixed $k{=}4$, but tail behavior remains close to
-that point and well below the high-$k$ collapse.
+The cross-hardware extension adds an important qualification.
+While policy ordering trends transfer from RTX4090 to RTX5090-laptop,
+absolute speedup magnitudes do not.
+This supports a practical interpretation: generalization claims should emphasize
+portable trends and decision rules, not fixed throughput numbers.
 
-Together, these results suggest that practical deployment should prioritize a
-smaller block size ($k{=}4$) and deterministic policy when latency is the
-primary objective.
+\subsection{Novelty and contribution scope}
 
-Demand for local and consumer-hardware LLM inference is increasing, so the key
-question is not only peak data-center speed, but which policy remains stable
-on constrained personal hardware. We therefore report hardware-profiled
-operating points rather than universal defaults. 
+This paper's contribution is primarily empirical and systems-oriented.
+We do not claim a new speculative decoding algorithm that universally
+improves throughput.
+Instead, we provide a controlled, reproducible characterization that links
+acceptance dynamics, token timing, and latency tails to practical operating
+choices on consumer hardware.
 
-\subsection{Draft-size implications}
+\subsection{Variance and evaluation depth}
 
-The 0.5B draft produces the best single configuration
-(0.5B, $k{=}4$, deterministic), and also has a slightly higher mean speedup
-than 1.5B across the full grid in this run family. This indicates that
-draft-size selection is hardware- and budget-sensitive: the smaller draft can
-win on end-to-end speed even when the larger draft improves acceptance.
-
-\subsection{Speed versus quality}
-
-Quality drift is task-dependent. CNN/DailyMail and MMLU remain relatively
-stable across settings, while GSM8K is more variable, especially under
-stochastic decoding. A conservative filter
-($\max |\Delta| \le 1$ across all three tasks) retains a small subset of
-configurations, among which 1.5B, $k{=}8$, deterministic remains best.
-This supports a practical policy: use deterministic mode with $k{=}4$ for
-production-like latency targets, and treat stochastic settings as
-quality-sensitive configurations requiring additional calibration.
-Final winner claims should be interpreted together with paired confidence
-intervals and corrected pairwise tests from a coherent artifact family.
+To strengthen rigor, we report seed-level mean$\pm$std summaries,
+time to first token (TTFT), time per output token (TPOT), 99th-percentile
+(P99) latency, and corrected paired tests.
+This improves repeated-run variability reporting and statistical clarity.
+We also expand quality reporting beyond a single summarization metric in the
+ablation artifacts (ROUGE-L, BLEU, and BERTScore), while acknowledging that
+these still do not fully capture factuality or task-specific utility.
 
 \section{Threats to validity}
 \label{sec:threats}
 
-\textbf{Single-hardware scope.}
-All results are from one RTX4090. Relative rankings are informative for this
-deployment class, but absolute speedups may shift on other GPU generations.
-In this run family, CUDA-graph metadata indicates a pending/zero capture rate,
-so reported gains reflect the same code path under fallback execution rather
-than successful graph replay.
+\textbf{Hardware and runtime dependence.}
+Results remain sensitive to implementation stack and runtime path.
+The RTX4090 and RTX5090-laptop comparison demonstrates that ranking trends can
+transfer while absolute gains diverge.
 
-\textbf{Model-family scope.} All reported runs use the same family pairings
-(Qwen2.5 target and drafts). Cross-family pairings may therefore exhibit
-materially different acceptance and quality behavior.
+\textbf{Model-family scope.}
+This study centers on same-family Qwen2.5 and Qwen3 target/draft pairings.
+Cross-family speculative pairings may show different acceptance and quality
+behavior.
 
 \textbf{Evaluation breadth.}
-The benchmark set spans math reasoning, knowledge QA, and summarization, but
-does not exhaust safety, factuality, or long-context behavior. ROUGE-L in
-particular is an incomplete summarization quality proxy.
+The benchmark suite covers reasoning, knowledge QA, and summarization, but does
+not exhaust long-context, safety, or factual consistency requirements.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-This paper provides a controlled consumer-GPU evaluation of speculative
-decoding with a Qwen2.5-3B target and same-family drafts. The current evidence
-shows consistent acceleration across all tested fixed and adaptive
-configurations, with best observed performance at 0.5B, $k{=}4$, deterministic
-($S{=}3.0674$). We find that increasing $k$ from 4 to 8 and 16 reduces net
-speedup in this setup, and that deterministic decoding is generally faster than
-stochastic decoding for matched settings. ACSD also delivers a significant
-speedup over autoregressive baselines (deterministic $S{=}2.9561$, stochastic
-$S{=}2.8658$) with low fallback rates, but remains below the best fixed-policy
-speedup.
+This paper presents reproducible deployment guidance for
+consumer GPUs using same-family speculative decoding in both Qwen2.5 and
+Qwen3 settings. On RTX4090, deterministic $k{=}4$ remains the strongest
+operating point family-wise, with monotonic degradation as $k$ increases.
+Cross-hardware validation on RTX5090-laptop preserves the same policy ordering
+trend but not the same absolute speedups, emphasizing that portability must be
+interpreted at the trend level.
 
-These findings yield an actionable operating recommendation for the present
-hardware budget: prefer deterministic speculative decoding at $k{=}4$, with
-0.5B draft as the default fast path and larger drafts reserved for
-quality-sensitive scenarios. ACSD can be enabled when runtime resilience and
-tail protection are prioritized over absolute peak throughput. Future work will
-evaluate broader hardware/model families and tune adaptive thresholds to test
-whether ACSD can close the remaining gap to the fixed $k{=}4$ optimum while
-preserving quality control.
+ACSD remains useful as an adaptive policy layer for runtime-stability trade-offs,
+but is not presented as a universal throughput optimizer.
+Future work will expand hardware diversity, include additional model families,
+and evaluate longer-context and richer quality diagnostics.

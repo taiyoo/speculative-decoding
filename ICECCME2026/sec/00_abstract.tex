@@ -1,22 +1,24 @@
 \begin{abstract}
-Speculative decoding is a promising way to accelerate local LLM inference, yet
-its behavior on consumer-class RTX GPUs remains under-characterized.
-We present a controlled study on one RTX4090 with a Qwen2.5-3B-Instruct
-target and same-family 0.5B/1.5B drafts across GSM8K, a 5-subject MMLU subset,
-and CNN/DailyMail, using frozen manifests and matched prompts. We evaluate
-12 fixed-policy configurations ($k\in\{4,8,16\}$, deterministic/stochastic,
-two draft sizes), regime-matched autoregressive baselines, and an Adaptive
-Cascaded Speculative Decoding (ACSD) policy. The best observed speedup is
-0.5B, $k{=}4$, deterministic ($S{=}3.0674$, 95\% CI $[3.029, 3.104]$,
-$p<10^{-4}$). Speedup decreases monotonically with larger $k$
-($\bar{S}_{k=4}=2.9164$, $\bar{S}_{k=8}=2.4029$, $\bar{S}_{k=16}=1.8019$)
-even as $B_{\text{eff}}$ increases, indicating a drafting/verification
-overhead inflection on this hardware profile. Deterministic decoding is faster
-in 5 of 6 matched fixed-policy draft--$k$ pairs
-($\Delta S_{\text{det-stoch}}=0.0568$ mean). ACSD also remains strongly faster
-than autoregressive baselines ($S{=}2.9561$ deterministic,
-$S{=}2.8658$ stochastic; both $p<10^{-4}$) with low fallback rates
-(1.6\% and 2.2\%), but does not surpass the best fixed $k{=}4$ point.
-These results provide deployment-oriented guidance for selecting fixed versus
-adaptive speculative control on consumer GPUs.
+Speculative decoding is widely reported to improve large language model (LLM) latency, but practical
+behavior on consumer RTX devices is highly sensitive to hardware profile,
+runtime path, and decoding policy. We present a controlled study spanning two
+model families (Qwen2.5 and Qwen3) and two consumer-GPU setups
+(RTX4090 and RTX5090-laptop). For fixed-policy settings ($k\in\{4,8,16\}$;
+deterministic/stochastic), the RTX4090 Qwen3 run family shows best speedup at
+$k{=}4$, deterministic ($S{=}2.8548$) and monotonic degradation with larger
+$k$ ($\bar{S}_{k=4}=2.6673$, $\bar{S}_{k=8}=1.8258$, $\bar{S}_{k=16}=1.0405$),
+while acceptance efficiency and accepted block size move in opposite directions
+for latency optimization. Across matched pairs, deterministic remains faster
+than stochastic at every $k$ (mean gap $0.2633$ speedup units). On
+RTX5090-laptop, the same ordering trends persist (best at $k{=}4$,
+deterministic; lower at larger $k$; deterministic $>$ stochastic), but absolute
+speedups are below 1 under the tested stack, highlighting a deployment-critical
+portability gap. We additionally report seed-level variance (mean$\pm$std),
+time to first token (TTFT), time per output token (TPOT), and corrected paired
+tests to strengthen statistical transparency.
+The Qwen2.5 results show the same qualitative low-$k$ and
+deterministic-preference trends, providing cross-family consistency at the
+trend level. These findings refine the paper's claim: this work provides reproducible,
+deployment-oriented characterization and policy guidance rather than a
+universally throughput-improving new algorithm.
 \end{abstract}

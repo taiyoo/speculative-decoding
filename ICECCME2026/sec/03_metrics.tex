@@ -5,7 +5,7 @@ Table~\ref{tab:metrics} defines the exact reporting metrics used in this study.
 
 \begin{table*}[t]
 \centering
-\caption{Exact metric definitions for reporting.}
+\caption{Metric definitions used in this study.}
 \label{tab:metrics}
 \small
 \begin{tabular}{llllll}
@@ -38,4 +38,4 @@ Speedup stability & $\sigma_S$ & std($S$ over seeds) & $\times$ & Lower \\
     \item Absolute quality drop $\leq 1.0$ point on GSM8K and MMLU in deterministic regime.
 \end{enumerate}
 
-\noindent\textbf{Secondary:} Identify best (draft size, $k$) maximizing $S$ while satisfying quality constraints, and report pairwise significance for winner selection with multiple-testing correction.
+\noindent\textbf{Secondary:} Identify best ($k$, regime) maximizing $S$ while satisfying quality constraints, report seed-level variance (mean$\pm$std), and test whether ranking trends transfer across hardware profiles even when absolute speedups differ.

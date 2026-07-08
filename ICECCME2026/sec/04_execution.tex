@@ -9,7 +9,8 @@ The notebook driver executes these modules in fixed phase order and writes
 artifacts to the results directory.
 
 \paragraph{Model loading and precision}
-In the current configuration, target and draft models are loaded in FP16 for
+In the current configuration, target and draft models are loaded in 16-bit
+floating point (FP16) for
 the main sweep, with quantization controls retained in configuration for
 alternative runs. The tokenizer and generation limits are kept constant between
 baselines and speculative runs to preserve paired comparability.
@@ -27,6 +28,8 @@ target verifies the proposal in one pass over the extended prefix; the accepted
 prefix is committed up to the first mismatch; and one correction token is added
 from the target distribution when needed. This procedure preserves target-level
 generation semantics while exposing acceptance statistics needed for analysis.
+Both draft and target states are tracked with key-value (KV) caches throughout
+the decode loop.
 Figure~\ref{fig:specdec-impl-flow} summarizes this implementation flow.
 
 \paragraph{CUDA-graph overhead model and observed effect}
@@ -41,12 +44,12 @@ replay overhead term:
 T^{\text{graph}}_{\text{cycle}} \approx k\,t_{\text{draft}} + t_{\text{verify}} + n_{\text{replay}}\,t_{\text{replay}},
 \qquad t_{\text{replay}} \ll t_{\text{launch}}.
 \end{equation}
-In the present RTX4090 run family, capture-rate metadata is 0, so the main
-results reflect fallback execution rather than sustained graph replay. A
-separate paired GPU-optimization toggle microbenchmark (12 matched samples,
-$k{=}8$) reports mean TPOT 32.84 ms/token (off) versus 33.30 ms/token (on),
-with mean delta $+0.46$ ms/token (95\% CI $[0.14, 0.83]$), indicating no
-TPOT benefits under the current capture conditions.
+In the Qwen3 run families, graph-capture metadata differs by hardware:
+the RTX4090 fixed-policy matrix reports stable captured execution, whereas
+RTX5090-laptop sensitivity runs show that graph-enabled toggles do not
+guarantee end-to-end latency gains under all runtime conditions. This is why
+we report both absolute speedup and component-level timing rather than
+assuming graph capture alone explains throughput behavior.
 
 \paragraph{Dynamic-scheduling bottleneck in native PyTorch paths}
 Fallback eager execution should not be viewed only as an implementation miss.

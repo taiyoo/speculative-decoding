@@ -1,212 +1,135 @@
 \section{Results}
 \label{sec:results}
 
-This section reports fixed-policy speculative-decoding outcomes from the
-RTX4090 CUDA-graph run family and regime-matched deterministic/stochastic
-baselines. Headline values are summarized in \textit{all\_configs\_summary.csv}.
-We emphasize paired comparative metrics
-($S$, $\alpha$, $B_{\text{eff}}$) and task deltas to evaluate the
-speed--quality tradeoff.
+This section reports fixed-policy results for Qwen2.5 and Qwen3 families
+across two consumer-GPU setups: desktop RTX4090 and RTX5090-laptop.
+We focus on paired speedup $S$, acceptance dynamics ($\alpha$, $B_{\text{eff}}$),
+and token-timing metrics (time to first token, TTFT; time per output token,
+TPOT), then summarize portability implications.
 
 \begin{table*}[t]
 \centering
-\caption{RTX4090 CUDA-graph run family summary (Qwen2.5-3B target).
-$S$ is the ratio-of-means paired speedup against regime-matched baselines.
-CI$_S$ is the paired bootstrap 95\% interval (10k resamples over matched
-samples); $p_S$ is one-sided significance for $H_0\!:\,S\le 1$.
-$\alpha$ is token-level acceptance; $B_{\text{eff}}$ is accepted tokens per
-verification cycle.}
-\label{tab:headline}
-\small
-\begin{tabular}{l c c c c c c c c}
-\hline
-\textbf{Config} & $S$ & CI$_S$ & $p_S$ & $\alpha$ & $B_{\text{eff}}$ & $\Delta$GSM8K & $\Delta$MMLU & $\Delta$CNN/DM \\
-\hline
-baseline, det        & 1.0000 & -- & -- & -- & -- & -- & -- & -- \\
-baseline, stoch      & 1.0000 & -- & -- & -- & -- & -- & -- & -- \\
-0.5B, $k{=}4$, det   & \textbf{3.0674} & [3.029, 3.104] & $<10^{-4}$ & 0.4212 & 1.66 & 0.33 & 0.00 & -0.02 \\
-0.5B, $k{=}4$, stoch & 2.9394 & [2.900, 2.979] & $<10^{-4}$ & 0.4080 & 1.61 & 1.67 & -0.20 & -0.03 \\
-0.5B, $k{=}8$, det   & 2.4542 & [2.408, 2.500] & $<10^{-4}$ & 0.3515 & 2.72 & 0.33 & 0.00 & -0.05 \\
-0.5B, $k{=}8$, stoch & 2.4063 & [2.359, 2.453] & $<10^{-4}$ & 0.3444 & 2.67 & 1.00 & 0.00 & -0.38 \\
-0.5B, $k{=}16$, det  & 1.8050 & [1.751, 1.859] & $<10^{-4}$ & 0.2539 & 3.76 & 0.33 & 0.00 & -0.01 \\
-0.5B, $k{=}16$, stoch& 1.8185 & [1.764, 1.873] & $<10^{-4}$ & 0.2516 & 3.73 & 0.34 & -0.20 & -0.19 \\
-1.5B, $k{=}4$, det   & 2.8726 & [2.839, 2.905] & $<10^{-4}$ & 0.4581 & 1.81 & -0.33 & 0.00 & -0.03 \\
-1.5B, $k{=}4$, stoch & 2.7860 & [2.754, 2.819] & $<10^{-4}$ & 0.4421 & 1.75 & 1.67 & 0.00 & -0.34 \\
-1.5B, $k{=}8$, det   & 2.4066 & [2.366, 2.447] & $<10^{-4}$ & 0.3929 & 3.04 & 0.00 & 0.00 & -0.06 \\
-1.5B, $k{=}8$, stoch & 2.3444 & [2.304, 2.385] & $<10^{-4}$ & 0.3822 & 2.96 & 3.67 & 0.20 & -0.47 \\
-1.5B, $k{=}16$, det  & 1.8068 & [1.761, 1.853] & $<10^{-4}$ & 0.2968 & 4.39 & 0.67 & 0.00 & -0.03 \\
-1.5B, $k{=}16$, stoch& 1.7773 & [1.732, 1.825] & $<10^{-4}$ & 0.2928 & 4.36 & 1.00 & -0.20 & -0.36 \\
-\hline
-\end{tabular}
-\end{table*}
-
-Figure~\ref{fig:specdec-vs-baseline-metrics} complements
-Table~\ref{tab:headline} with a visual baseline-relative view across all
-configurations, including speedup, latency/throughput deltas, and token-timing
-deltas, and acceptance dynamics.
-
-\begin{figure*}[t]
-\centering
-\includegraphics[width=0.98\textwidth]{figures/specdec_configs_vs_baseline_metrics.pdf}
-\caption{Speculative-decoding metrics for all RTX~4090 configurations relative
-to regime-matched baseline. Top-left: paired speedup $S$ (baseline at
-$S{=}1$). Top-right: mean latency reduction and throughput gain percentages vs
-baseline. Bottom-left: TTFT and TPOT percentage deltas vs baseline. Bottom-right:
-acceptance dynamics ($\alpha$ and $B_{\text{eff}}$) across the same
-configurations.}
-\label{fig:specdec-vs-baseline-metrics}
-\end{figure*}
-
-\subsection{RQ1: Does speculative decoding accelerate inference?}
-
-Across the RTX~4090 CUDA-graph run family, all 12 speculative configurations
-exceed $S{=}1$, with speedups from $1.7773$ to $3.0674$. The best setting is
-0.5B with $k{=}4$ in deterministic mode. Regime-matched baseline files report
-mean latencies of 11.41s (deterministic) and 11.65s (stochastic) per sample,
-so the wall-clock gains are substantial for this fixed workload and prompt
-set. Paired bootstrap intervals and one-sided tests show that every
-configuration is faster than autoregressive decoding
-($p_S<10^{-4}$ throughout, Table~\ref{tab:headline}).
-
-\subsection{RQ2: How do draft length and draft size affect acceptance and speed?}
-
-Draft length shows a monotonic decline in speedup over this grid. Averaging
-over drafts and regimes, mean speedup is highest at $k{=}4$ ($2.9164$), then
-$k{=}8$ ($2.4029$), then $k{=}16$ ($1.8019$). This is consistent with acceptance
-dynamics: as $k$ increases, $B_{\text{eff}}$ increases (1.7075 $\rightarrow$
-2.8475 $\rightarrow$ 4.0600) but $\alpha$ decreases (0.4324 $\rightarrow$
-0.3678 $\rightarrow$ 0.2738), and the extra draft/verify cost dominates net
-benefit.
-
-Draft size has a smaller global effect than $k$ in this grid, and the 0.5B
-draft is slightly better on mean speedup (mean $S$: 2.4151 for 0.5B versus
-2.3323 for 1.5B).
-
-Table~\ref{tab:bottleneck} summarizes the deterministic endpoints of this
-non-linear trend and highlights the systems-level interpretation: higher
-$B_{\text{eff}}$ does not guarantee higher $S$ once per-cycle drafting and
-verification overhead dominates.
-
-\begin{table}[t]
-\centering
-\caption{Deterministic bottleneck analysis at low vs. high $k$.}
-\label{tab:bottleneck}
-\small
-\begin{tabular}{l c c c c}
-\hline
-\textbf{Config} & $\alpha$ & $B_{\text{eff}}$ & $S$ & \textbf{Interpretation} \\
-\hline
-0.5B, $k{=}4$  & 0.4212 & 1.66 & 3.0674 & Sweet spot \\
-0.5B, $k{=}16$ & 0.2539 & 3.76 & 1.8050 & Drafting overload \\
-1.5B, $k{=}4$  & 0.4581 & 1.81 & 2.8726 & Memory pressure \\
-1.5B, $k{=}16$ & 0.2968 & 4.39 & 1.8068 & Diminishing returns \\
-\hline
-\end{tabular}
-\end{table}
-
-\subsection{RQ3: Deterministic versus stochastic regime}
-
-Deterministic decoding is faster in 5 of 6 matched draft--$k$ pairs. The
-deterministic advantage ranges from $-0.0135$ to $0.1280$ in absolute $S$ and
-averages $0.0568$ across the six matched pairs; the single exception is
-0.5B, $k{=}16$, where stochastic is slightly faster. This still supports a preference for a deterministic deployment regime when latency is primary, and output diversity is not required.
-
-At the system level, stochastic decoding adds sampling and rejection-check
-overheads that are weakly amortized on this hardware profile. With large
-distribution processing and limited memory bandwidth (1008~GB/s), these costs
-can offset speculative parallelism gains, consistent with the deterministic
-advantage.
-
-Quality stability differs by task. CNN/DailyMail remains close to baseline but
-consistently negative ($-0.47$ to $-0.01$). MMLU shifts are small
-($-0.2$ to $0.2$). GSM8K shows the largest spread ($-0.33$ to $3.67$),
-especially under stochastic decoding.
-Under our entropy-oriented interpretation, CNN/DailyMail is the highest-entropy
-setting in this suite, so acceptance mismatch and quality drift are more likely
-than in constrained QA tasks.
-Under a conservative quality filter ($\max |\Delta| \le 1$ across tasks),
-9 configurations remain, with best speedup at 0.5B, $k{=}4$, deterministic.
-
-The resulting design guideline is clear: when selecting $k$ on consumer GPUs,
-prioritize lower per-cycle runtime over maximal accepted-block growth.
-
-Implementation details for the CUDA-graph-capable runtime setup are described
-in Section~\ref{sec:protocol}.
-
-\subsection{ACSD quantitative evaluation}
-
-We next evaluate the Adaptive Cascaded Speculative Decoding (ACSD) controller
-under the same 1000-sample deterministic/stochastic manifests
-(GSM8K 300, MMLU 500, CNN/DailyMail 200). Speedup is computed as paired
-ratio-of-means against regime-matched autoregressive baselines using the same
-bootstrap protocol as Table~\ref{tab:headline}.
-
-\begin{table*}[t]
-\centering
-\caption{ACSD results on RTX~4090 CUDA-graph run family, with quality deltas
-relative to regime-matched baseline quality anchors inferred from the
-fixed-policy summary table.}
-\label{tab:acsd-headline}
+\caption{Qwen3 fixed-policy results on RTX4090 against regime-matched baselines.
+Speedup is computed as a ratio of means against the corresponding baseline.}
+\label{tab:headline-4090}
 \small
 \begin{tabular}{l c c c c c c}
 \hline
-\textbf{Regime} & $S$ (95\% CI) & $\alpha$ & $B_{\text{eff}}$ & $R_{\text{tok}}$ & Rescue/Fallback & $\max |\Delta Q|$ \\
+\textbf{Config} & $S$ & $\alpha$ & $B_{\text{eff}}$ & $T_{\text{mean}}$ (s) & TTFT (ms) & TPOT (ms) \\
 \hline
-ACSD, det   & 2.9561 [2.9205, 2.9916] & 0.4207 & 1.7977 & 32.6056 & 17.0\% / 1.6\% & 0.33 \\
-ACSD, stoch & 2.8658 [2.8305, 2.9007] & 0.4071 & 1.7214 & 31.0750 & 20.0\% / 2.2\% & 1.00 \\
+0.6B, $k{=}4$, det   & \textbf{2.8548} & 0.3362 & 1.33 & 4.8881 & 132.57 & 41.23 \\
+0.6B, $k{=}4$, stoch & 2.4798 & 0.2672 & 1.06 & 5.6196 & 134.54 & 45.51 \\
+0.6B, $k{=}8$, det   & 1.9648 & 0.2378 & 1.86 & 7.1024 & 204.99 & 58.76 \\
+0.6B, $k{=}8$, stoch & 1.6869 & 0.1916 & 1.50 & 8.2612 & 207.82 & 64.67 \\
+0.6B, $k{=}16$, det  & 1.1091 & 0.1292 & 1.96 & 12.5817 & 349.58 & 94.24 \\
+0.6B, $k{=}16$, stoch& 0.9719 & 0.1082 & 1.64 & 14.3390 & 354.82 & 106.03 \\
 \hline
 \end{tabular}
 \end{table*}
 
-Both ACSD regimes remain strongly faster than autoregressive decoding
-($p<10^{-4}$ for both), but do not exceed the best fixed-policy point
-(0.5B, $k{=}4$): ACSD deterministic is lower by 0.1113 speedup units
-($\approx$3.6\%), and ACSD stochastic by 0.0736 ($\approx$2.5\%).
-Operationally, fallback use remains low (1.6\% deterministic,
-2.2\% stochastic), indicating that tail guardrails are only occasionally
-invoked, while rescue drafting is used in 17.0\% and 20.0\% of samples.
-Task-level ACSD quality deltas are (0.33, 0.00, -0.02) for deterministic and
-(-1.00, -0.20, -0.22) for stochastic on
-(GSM8K, MMLU, CNN/DailyMail), respectively.
+\subsection{RQ1: Does speculative decoding accelerate inference?}
 
-Aggregated adaptive-$k$ usage shows that ACSD spends most accepted blocks at
-larger settings near the sweet spot boundary: deterministic run share is
-$k{=}4$ (40.74\%) and $k{=}5$ (46.18\%), with only 1.73\% at $k\in\{1,2\}$;
-stochastic run share is $k{=}4$ (43.17\%) and $k{=}5$ (42.66\%), with 1.75\%
-at $k\in\{1,2\}$. This pattern supports the controller's intent of staying near
-high-throughput operating points while retaining low-$k$ escape routes.
+On RTX4090, five of six fixed-policy configurations are faster than baseline,
+with best speedup at 0.6B, $k{=}4$, deterministic ($S{=}2.8548$;
+Table~\ref{tab:headline-4090}).
+The single below-baseline point is high-$k$ stochastic ($k{=}16$, $S{=}0.9719$),
+which indicates that speculative decoding is not uniformly beneficial even
+within one hardware family when proposal length is too large.
+
+\subsection{RQ2: How do $k$ and acceptance affect net latency?}
+
+The results retain the same systems trend: larger $k$ increases
+accepted block size but degrades end-to-end speed.
+On RTX4090,
+$\bar{S}_{k=4}=2.6673$, $\bar{S}_{k=8}=1.8258$, $\bar{S}_{k=16}=1.0405$,
+while $B_{\text{eff}}$ increases from about 1.2 to about 1.8.
+This confirms an overhead inflection: acceptance efficiency falls with $k$
+($\alpha$: 0.3362/0.2672 at $k{=}4$ to 0.1292/0.1082 at $k{=}16$), and the
+extra drafting/verification work dominates any block-size benefit.
+
+\subsection{RQ3: Deterministic versus stochastic regime}
+
+Deterministic decoding is faster than stochastic at every matched $k$ in the
+reported matrix:
+$\Delta S_{k=4}{=}0.3750$, $\Delta S_{k=8}{=}0.2779$,
+$\Delta S_{k=16}{=}0.1372$ (deterministic minus stochastic),
+with mean gap 0.2633 speedup units.
+TTFT and TPOT also show consistent deterministic advantage
+(Table~\ref{tab:headline-4090}).
+
+\subsection{RQ4: Cross-hardware portability (RTX4090 vs RTX5090-laptop)}
 
 \begin{table}[t]
 \centering
-\caption{Latency-tail comparison (seconds): fixed 0.5B $k{=}4$, ACSD, and
-high-$k$ 0.5B $k{=}16$.}
-\label{tab:acsd-tail}
+\caption{Qwen3 fixed-policy results on RTX5090-laptop.
+Ordering trends are preserved (best at low $k$, deterministic $>$ stochastic),
+but absolute speedups are below 1 in this run family.}
+\label{tab:headline-5090}
 \small
-\begin{tabular}{l l c c c}
+\begin{tabular}{l c c c}
 \hline
-\textbf{Regime} & \textbf{Config} & Mean & P90 & P99 \\
+\textbf{Config} & $S$ & $\alpha$ & $B_{\text{eff}}$ \\
 \hline
-det & 0.5B $k{=}4$ & 3.721 & 7.423 & 8.153 \\
-det & ACSD        & 3.861 & 7.715 & 8.300 \\
-det & 0.5B $k{=}16$ & 6.323 & 12.688 & 15.654 \\
-stoch & 0.5B $k{=}4$ & 3.963 & 7.855 & 8.655 \\
-stoch & ACSD        & 4.065 & 8.163 & 8.962 \\
-stoch & 0.5B $k{=}16$ & 6.406 & 13.088 & 16.260 \\
+0.6B, $k{=}4$, det   & 0.6743 & 0.3353 & 1.32 \\
+0.6B, $k{=}4$, stoch & 0.5924 & 0.2845 & 1.06 \\
+0.6B, $k{=}8$, det   & 0.4613 & 0.2538 & 1.85 \\
+0.6B, $k{=}8$, stoch & 0.3995 & 0.2273 & 1.50 \\
+0.6B, $k{=}16$, det  & 0.2588 & 0.1803 & 1.96 \\
+0.6B, $k{=}16$, stoch& 0.2222 & 0.1543 & 1.64 \\
 \hline
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:acsd-tail} clarifies the trade-off: ACSD mean latency is
-2.6--3.8\% above fixed $k{=}4$, with slightly higher P99
-(+1.8\% deterministic, +3.6\% stochastic), yet far below high-$k$ tails
-(about 45--47\% lower P99 than $k{=}16$). This supports ACSD as a guardrail,
-not a peak-throughput optimizer.
+The ordering pattern transfers across devices (low-$k$ best,
+deterministic preferred, and monotonic decline with larger $k$),
+but absolute gains do not.
+Under the tested RTX5090-laptop software/runtime stack, all reported
+fixed-policy points are slower than autoregressive baseline.
+This indicates that trend-level
+conclusions are more portable than absolute speedup magnitudes.
 
-\subsection{Summary of empirical operating point}
+\subsection{Variance, TTFT/TPOT, and statistical testing detail}
 
-The current evidence supports a practical recommendation: use deterministic
-speculative decoding with a smaller fixed block ($k{=}4$) when peak throughput
-is the primary target, and prefers the 0.5B draft for this hardware profile.
-ACSD adds robustness-oriented control with strong baseline-relative speedups
-and low fallback rates, but fixed $k{=}4$ remains the fastest observed operating
-point in this run family.
+To provide stronger statistical detail, we include seed-level summaries from
+repeated fixed-$k$ runs.
+Across seeds, deterministic speedup means are
+$2.2876\pm0.0242$ ($k{=}4$), $2.2712\pm0.0295$ ($k{=}8$), and
+$2.0511\pm0.0273$ ($k{=}16$); stochastic means are
+$1.8910\pm0.0220$, $1.9055\pm0.0257$, and $1.6698\pm0.0133$.
+TTFT is stable (about 50--52 ms), while TPOT and 99th-percentile (P99)
+latency rise with larger
+$k$, consistent with the overhead interpretation.
+
+We also report paired tests with Holm-Bonferroni correction for ACSD-versus-fixed
+comparisons (Section~\ref{sec:acsd}), separating statistically
+significant token-timing effects from non-significant quality differences in
+that comparison set.
+
+\subsection{Summary of practical operating point}
+
+For the Qwen3 evidence, the most reliable deployment recommendation on
+RTX4090 remains deterministic $k{=}4$ as the default fast path.
+Cross-device validation supports this policy ranking but warns that
+hardware/runtime portability is limited for absolute throughput gains.
+
+\subsection{Cross-family consistency (Qwen2.5 vs Qwen3)}
+
+To address model-family applicability, we compare Qwen2.5 RTX4090
+results with the Qwen3 results.
+The absolute speedup scale differs across runs, but the core qualitative
+patterns are consistent across both families on RTX4090:
+(i) best operating point at low $k$ (especially $k{=}4$),
+(ii) worsening speedup as $k$ increases, and
+(iii) deterministic preference in most matched settings.
+
+Concretely, the Qwen2.5 table reports best fixed speedup at
+0.5B, $k{=}4$, deterministic ($S{=}3.0674$), with mean-$k$ trend
+$\bar{S}_{k=4}=2.9164 > \bar{S}_{k=8}=2.4029 > \bar{S}_{k=16}=1.8019$.
+In the Qwen3 RTX4090 run family, we observe the same ordering with
+different magnitudes ($\bar{S}_{k=4}=2.6673 > \bar{S}_{k=8}=1.8258 >
+\bar{S}_{k=16}=1.0405$).
+
+These aligned trend-level findings support a stronger but still bounded claim:
+the operating-policy ranking appears more portable across these two model
+families than absolute throughput values, which remain implementation- and
+hardware-path dependent.

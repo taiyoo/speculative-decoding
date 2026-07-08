@@ -16,6 +16,12 @@ GPU, the key questions are practical: which draft size is worthwhile, which
 $k$ is optimal, and whether deterministic versus stochastic decoding changes
 the speed--quality frontier.
 
+This study addresses three practical gaps for deployment-facing evidence:
+(i) broader hardware/model validation, (ii) clearer seed-level variance and
+statistical testing details, and (iii) explicit positioning of Adaptive
+Cascaded Speculative Decoding (ACSD) as a robustness policy rather than a
+speedup-maximizing algorithm.
+
 This direction matters for privacy-sensitive and latency-critical local use,
 including local workstations and edge-side decision-support workflows. We
 therefore position this paper as a hardware-aware characterization study,
@@ -30,11 +36,12 @@ under acceptance drops.
 \subsection{Research questions}
 \label{sec:rqs}
 
-We address three research questions:
+We address four research questions:
 \begin{enumerate}\itemsep0pt
   \item[\textbf{RQ1.}] How much end-to-end speedup does vanilla
-        speculative decoding delivers against autoregressive decoding on a
-        single RTX4090 with a 3\,B target, and how close is this to
+        speculative decoding deliver against autoregressive decoding on
+      consumer RTX hardware with Qwen2.5 and Qwen3 family pairings, and how
+      close is this to
         a practical hardware-constrained upper bound?
   \item[\textbf{RQ2.}] How do draft model size and draft length jointly
         determine token acceptance and net latency, and what do these trends
@@ -42,6 +49,9 @@ We address three research questions:
   \item[\textbf{RQ3.}] How sensitive is the speed--quality trade-off to
         the sampling regime (deterministic vs.\ stochastic) and to task
         entropy?
+  \item[\textbf{RQ4.}] Do the ranking trends (optimal $k$, regime preference)
+        transfer across consumer-GPU profiles (desktop RTX4090 vs.
+        RTX5090-laptop), and where do absolute gains fail to transfer?
 \end{enumerate}
 
 \subsection{Contributions}
@@ -52,19 +62,18 @@ This paper makes the following contributions:
   \item A reproducible consumer-GPU protocol with frozen sample manifests,
         matched prompts, and two decoding regimes across GSM8K, MMLU subset,
         and CNN/DailyMail.
-  \item A complete 12-configuration speculative grid (two draft sizes,
-        $k\in\{4,8,16\}$, deterministic/stochastic) with regime-matched
-        baselines and per-configuration reporting of latency, throughput,
-        acceptance, and quality deltas.
-  \item Empirical evidence that, in the current RTX4090 CUDA-graph run family,
-        speedup decreases with larger $k$ (highest at $k{=}4$), with best
-        observed performance at 0.5B, $k{=}4$, deterministic ($S{=}3.0674$),
-        and a deterministic advantage in 5 of 6 matched draft--$k$ pairs.
-  \item A statistical reporting protocol for camera-ready evaluation: paired
-        bootstrap confidence intervals, one-sided significance tests for
-        $S{>}1$, and corrected pairwise comparisons for winner selection.
-  \item An adaptive-policy design guidance and an ACSD quantitative validation 
-        on the same manifests.
+  \item A two-family fixed-policy study combining Qwen2.5 and Qwen3
+        configurations, with $k\in\{4,8,16\}$ and
+        deterministic/stochastic regimes, reported with latency, TTFT, TPOT,
+        acceptance, and quality metrics.
+  \item Cross-hardware validation across desktop RTX4090 and RTX5090-laptop
+        configurations, showing trend portability (best at low $k$,
+        deterministic preference) but non-portable absolute gains.
+  \\item Expanded statistical reporting: seed-level
+        mean$\pm$std summaries, paired tests with Holm-Bonferroni correction,
+        and explicit effect reporting.
+  \\item An ACSD interpretation and ablation that prioritizes runtime
+        stability and tail behavior over peak throughput claims.
 \end{enumerate}
 
 The rest of the paper is organized as follows. Section~\ref{sec:related}
