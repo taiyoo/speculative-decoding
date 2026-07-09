@@ -1,0 +1,176 @@
+\section{Results}
+\label{sec:results}
+
+This section reports fixed-policy results for Qwen2.5 and Qwen3 families
+across two consumer-GPU setups: desktop RTX4090 and RTX5090-laptop.
+We focus on paired speedup $S$, acceptance dynamics ($\alpha$, $B_{\text{eff}}$),
+and token-timing metrics (time to first token, TTFT; time per output token,
+TPOT), then summarize portability implications.
+
+\begin{table*}[t]
+\centering
+\caption{Qwen2.5 fixed-policy results on RTX4090 (target: 3B, draft: 0.5B) against regime-matched autoregressive baselines.
+Speedup is computed as a ratio of means against the corresponding baseline.}
+\label{tab:headline-4090-qwen25}
+\small
+\begin{tabular}{l c c c c c c}
+\hline
+\textbf{Config} & $S$ & $\alpha$ & $B_{\text{eff}}$ & $T_{\text{mean}}$ (s) & TTFT (ms) & TPOT (ms) \\
+\hline
+0.5B, $k{=}4$, det   & \textbf{3.0674} & 0.4212 & 1.66 & 3.7210 & 102.35 & 29.06 \\
+0.5B, $k{=}4$, stoch & 2.9394 & 0.4080 & 1.61 & 3.9631 & 105.26 & 30.89 \\
+0.5B, $k{=}8$, det   & 2.4542 & 0.3515 & 2.72 & 4.6508 & 162.76 & 36.73 \\
+0.5B, $k{=}8$, stoch & 2.4063 & 0.3444 & 2.67 & 4.8411 & 165.95 & 38.04 \\
+0.5B, $k{=}16$, det  & 1.8050 & 0.2539 & 3.76 & 6.3234 & 277.43 & 49.34 \\
+0.5B, $k{=}16$, stoch& 1.8185 & 0.2516 & 3.73 & 6.4059 & 278.85 & 49.81 \\
+\hline
+\end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+\centering
+\caption{Qwen3 fixed-policy results on RTX4090 against regime-matched autoregressive baselines.
+Speedup is computed as a ratio of means against the corresponding baseline.}
+\label{tab:headline-4090}
+\small
+\begin{tabular}{l c c c c c c}
+\hline
+\textbf{Config} & $S$ & $\alpha$ & $B_{\text{eff}}$ & $T_{\text{mean}}$ (s) & TTFT (ms) & TPOT (ms) \\
+\hline
+0.6B, $k{=}4$, det   & \textbf{2.8548} & 0.3362 & 1.33 & 4.8881 & 132.57 & 41.23 \\
+0.6B, $k{=}4$, stoch & 2.4798 & 0.2672 & 1.06 & 5.6196 & 134.54 & 45.51 \\
+0.6B, $k{=}8$, det   & 1.9648 & 0.2378 & 1.86 & 7.1024 & 204.99 & 58.76 \\
+0.6B, $k{=}8$, stoch & 1.6869 & 0.1916 & 1.50 & 8.2612 & 207.82 & 64.67 \\
+0.6B, $k{=}16$, det  & 1.1091 & 0.1292 & 1.96 & 12.5817 & 349.58 & 94.24 \\
+0.6B, $k{=}16$, stoch& 0.9719 & 0.1082 & 1.64 & 14.3390 & 354.82 & 106.03 \\
+\hline
+\end{tabular}
+\end{table*}
+
+\subsection{RQ1: Does speculative decoding accelerate inference?}
+
+On RTX4090, Qwen2.5 and Qwen3 both show clear acceleration in most fixed-policy
+settings. For Qwen2.5 (Table~\ref{tab:headline-4090-qwen25}), all six reported
+points exceed baseline, with best speedup at 0.5B, $k{=}4$, deterministic
+($S{=}3.0674$). For Qwen3 (Table~\ref{tab:headline-4090}), five of six points
+exceed baseline, with best speedup at 0.6B, $k{=}4$, deterministic
+($S{=}2.8548$). The one below-baseline case is Qwen3 high-$k$ stochastic
+($k{=}16$, $S{=}0.9719$), indicating that large proposal length can remove net
+latency gains.
+
+\subsection{RQ2: How do $k$ and acceptance affect net latency?}
+
+Both families retain the same systems trend: larger $k$ increases accepted
+block size but degrades end-to-end speed. On RTX4090, Qwen2.5 mean speedup by
+$k$ is $\bar{S}_{k=4}=2.9164$, $\bar{S}_{k=8}=2.4303$,
+$\bar{S}_{k=16}=1.8118$, while Qwen3 shows
+$\bar{S}_{k=4}=2.6673$, $\bar{S}_{k=8}=1.8258$,
+$\bar{S}_{k=16}=1.0405$. In both tables, $B_{\text{eff}}$ rises with $k$
+while speedup falls, indicating an overhead inflection where additional
+drafting and verification cost dominates block-size benefits.
+
+\subsection{RQ3: Deterministic versus stochastic regime}
+
+For Qwen3, deterministic decoding is faster than stochastic at every matched
+$k$: $\Delta S_{k=4}{=}0.3750$, $\Delta S_{k=8}{=}0.2779$,
+$\Delta S_{k=16}{=}0.1372$ (deterministic minus stochastic), with mean gap
+0.2633 speedup units (Table~\ref{tab:headline-4090}).
+For Qwen2.5, deterministic is also faster at $k{=}4$ and $k{=}8$
+(Table~\ref{tab:headline-4090-qwen25}), with a small reversal at $k{=}16$.
+Across both families, deterministic generally provides a stronger runtime
+profile at low-to-mid $k$.
+
+\subsection{RQ4: Cross-hardware portability (RTX4090 vs RTX5090-laptop)}
+
+\begin{table}[t]
+\centering
+\caption{Qwen3 fixed-policy results on RTX5090-laptop.
+Ordering trends are preserved (best at low $k$, deterministic $>$ stochastic),
+but absolute speedups are below 1 under the tested runtime stack.}
+\label{tab:headline-5090}
+\small
+\begin{tabular}{l c c c}
+\hline
+\textbf{Config} & $S$ & $\alpha$ & $B_{\text{eff}}$ \\
+\hline
+0.6B, $k{=}4$, det   & 0.6743 & 0.3353 & 1.32 \\
+0.6B, $k{=}4$, stoch & 0.5924 & 0.2845 & 1.06 \\
+0.6B, $k{=}8$, det   & 0.4613 & 0.2538 & 1.85 \\
+0.6B, $k{=}8$, stoch & 0.3995 & 0.2273 & 1.50 \\
+0.6B, $k{=}16$, det  & 0.2588 & 0.1803 & 1.96 \\
+0.6B, $k{=}16$, stoch& 0.2222 & 0.1543 & 1.64 \\
+\hline
+\end{tabular}
+\end{table}
+
+The ordering pattern transfers across devices (low-$k$ best,
+deterministic preferred, and monotonic decline with larger $k$),
+but absolute gains do not.
+Under the tested RTX5090-laptop software/runtime stack, all reported
+fixed-policy points are slower than autoregressive baseline.
+This indicates that
+conclusions are more portable than absolute speedup magnitudes.
+
+\subsection{Sample-level dispersion, TTFT/TPOT, and statistical testing detail}
+
+To provide stronger statistical detail, we report sample-level dispersion
+(mean$\pm$std across the $n{=}1000$ evaluated samples per configuration,
+single-seed) alongside the ratio-of-means speedup in
+Table~\ref{tab:headline-4090}.
+Per-sample deterministic speedup is $2.7561\pm0.5950$ ($k{=}4$),
+$2.0010\pm0.6147$ ($k{=}8$), and $1.3549\pm0.6533$ ($k{=}16$);
+per-sample stochastic speedup is $2.4945\pm0.4565$, $1.8303\pm0.5644$, and
+$1.2173\pm0.6206$, respectively. TTFT rises with $k$ in both regimes
+(deterministic: $132.57\pm73.85$ to $349.58\pm72.72$~ms from $k{=}4$ to
+$k{=}16$; stochastic: $134.54\pm73.51$ to $354.82\pm72.85$~ms), matching
+Table~\ref{tab:headline-4090} exactly, while TPOT widens correspondingly
+(deterministic: $41.23\pm9.59$ to $94.24\pm39.46$~ms; stochastic:
+$45.51\pm8.93$ to $106.03\pm41.23$~ms), consistent with the overhead
+interpretation. This spread reflects genuine per-prompt variability (task
+mix and output-length differences) within a single seed rather than
+run-to-run measurement noise; independent multi-seed repetition of full
+runs is noted as a remaining limitation in Section~\ref{sec:threats}.
+
+We further report one-sided paired $t$-tests ($H_0{:}\ S \le 1$) comparing
+each fixed-$k$ configuration against its regime-matched autoregressive
+baseline, paired by sample, with Holm-Bonferroni correction across all six
+configurations and Cohen's $d$ effect sizes. Five of six configurations show
+highly significant, large-effect speedup after correction: deterministic
+$k{=}4$ ($d{=}1.18$, $p_{\text{adj}}<10^{-190}$), $k{=}8$
+($d{=}1.10$, $p_{\text{adj}}<10^{-172}$), $k{=}16$ ($d{=}0.29$,
+$p_{\text{adj}}<10^{-18}$), and stochastic $k{=}4$ ($d{=}1.24$,
+$p_{\text{adj}}<10^{-202}$), $k{=}8$ ($d{=}1.13$, $p_{\text{adj}}<10^{-179}$).
+Stochastic $k{=}16$ is the exception: the corrected test is not significant
+($d{=}-0.08$, $p_{\text{adj}}=0.996$), consistent with its below-baseline
+mean speedup ($S{=}0.9719$) reported above.
+
+For CNN/DailyMail (deterministic, $n{=}200$), quality also shifts under
+speculative decoding across all three reported metrics relative to the
+autoregressive baseline ($Q_{\text{sum}}{=}19.58\pm5.61$,
+$Q_{\text{bleu}}{=}3.20\pm3.09$, $Q_{\text{bert}}{=}0.793\pm0.031$):
+$k{=}4$ gives $Q_{\text{sum}}{=}11.50\pm4.85$,
+$Q_{\text{bleu}}{=}1.39\pm1.81$, $Q_{\text{bert}}{=}0.710\pm0.039$;
+$k{=}8$ gives $14.04\pm4.93$, $1.66\pm1.98$, $0.729\pm0.038$; and $k{=}16$
+gives $14.92\pm5.14$, $2.04\pm2.36$, $0.741\pm0.037$.
+
+\subsection{Cross-family consistency (Qwen2.5 vs Qwen3)}
+
+To address model-family applicability, we compare Qwen2.5 RTX4090
+results with the Qwen3 results.
+The absolute speedup scale differs across runs, but the core qualitative
+patterns are consistent across both families on RTX4090:
+(i) best operating point at low $k$ (especially $k{=}4$),
+(ii) worsening speedup as $k$ increases, and
+(iii) deterministic preference in most matched settings.
+
+Concretely, the Qwen2.5 table reports best fixed speedup at
+0.5B, $k{=}4$, deterministic ($S{=}3.0674$), with mean-$k$ trend
+$\bar{S}_{k=4}=2.9164 > \bar{S}_{k=8}=2.4303 > \bar{S}_{k=16}=1.8118$.
+In the Qwen3 RTX4090 run family, we observe the same ordering with
+different magnitudes ($\bar{S}_{k=4}=2.6673 > \bar{S}_{k=8}=1.8258 >
+\bar{S}_{k=16}=1.0405$).
+
+These aligned trend-level findings support a bounded claim:
+operating-policy ranking appears more portable across these two model
+families than absolute throughput values, which remain implementation- and
+hardware-path dependent.

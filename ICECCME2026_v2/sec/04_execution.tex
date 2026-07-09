@@ -1,0 +1,109 @@
+\section{Implementation and Reproducibility}
+\label{sec:impl}
+
+\paragraph{Code organization}
+The experiment pipeline is implemented under the project source directory with
+modular components for configuration, data loading, and autoregressive baselines,
+speculative decoding, metric aggregation, and runtime orchestration.
+The notebook driver executes these modules in fixed phase order and writes
+artifacts to the results directory.
+
+\paragraph{Model loading and precision}
+In the current configuration, target and draft models are loaded in 16-bit
+floating point (FP16) for
+the main sweep, with quantization controls retained in configuration for
+alternative runs. The tokenizer and generation limits are kept constant between
+baselines and speculative runs to preserve paired comparability.
+
+\paragraph{Baselines}
+We run one autoregressive baseline per regime (deterministic and stochastic)
+with the same manifests and output-length constraints as speculative runs.
+Each baseline artifact stores per-sample latency, output length, and task
+predictions.
+
+\paragraph{Speculative decoding implementation.}
+The speculative loop follows standard token-level draft--verify logic.
+At each cycle, the draft proposes up to $k$ tokens autoregressively; the
+target verifies the proposal in one pass over the extended prefix; the accepted
+prefix is committed up to the first mismatch; and one correction token is added
+from the target distribution when needed. This procedure preserves target-level
+generation semantics while exposing acceptance statistics needed for analysis.
+Both draft and target states are tracked with key-value (KV) caches throughout
+the decode loop.
+Figure~\ref{fig:specdec-impl-flow} summarizes this implementation flow.
+
+\paragraph{CUDA-graph runtime note}
+In the Qwen3 run families, graph-capture metadata differs by hardware.
+The RTX4090 fixed-policy matrix reports stable captured execution, whereas
+RTX5090-laptop sensitivity runs show that graph-enabled toggles do not
+consistently improve end-to-end latency. We therefore treat CUDA-graph usage
+as an implementation detail rather than a standalone performance claim, and
+base conclusions on end-to-end fixed-policy speedup trends.
+
+\paragraph{Dynamic-scheduling bottleneck in native PyTorch paths}
+Fallback eager execution should not be viewed only as an implementation miss.
+It reflects a broader systems challenge for end-to-end dynamic speculation.
+When acceptance-dependent control flow, sampling branches, and cache updates
+change per step, preserving lossless semantics often requires CPU-visible
+orchestration between kernels. Without a deeper runtime/kernel redesign, this
+serial control overhead can erase expected gains from speculative parallelism,
+as also emphasized in modern inference runtime roadmaps for dynamic
+scheduling.
+
+\paragraph{Tokenizer isomorphism as an enabling design choice}
+Same-family draft/target pairing is a central engineering decision in this
+study. Because the draft and target tokenizers are isomorphic, speculative
+verification avoids per-step vocabulary alignment and token translation.
+Cross-tokenizer pipelines introduce additional CPU-side mapping overhead that
+can materially reduce or negate speculative speedup on constrained hardware.
+
+\paragraph{Adaptive-$k$ implementation note}
+For adaptive-$k$ runs, we reuse the same draft--verify core and switch only the policy
+controller: $k$ is adapted online from recent acceptance behavior with guarded
+fallback to stable paths when acceptance collapses. We treat the adaptive-$k$
+run set as a runtime
+policy layer over the fixed-policy implementation, not as a separate decoding
+algorithm.
+
+\begin{figure}[t]
+\centering
+\resizebox{0.98\columnwidth}{!}{%
+\begin{tikzpicture}[
+	node distance=4.8mm and 6mm,
+	box/.style={rectangle, draw, rounded corners=1mm, align=center, minimum height=6mm, text width=31mm, inner sep=1.5mm},
+	decision/.style={diamond, draw, align=center, aspect=2, inner sep=1.1mm, text width=22mm},
+	line/.style={-Latex, thick, shorten >=1pt, shorten <=1pt}
+]
+\node[box] (start) {Start sample\\encode prompt and init KV cache};
+\node[box, below=of start] (draft) {Draft model proposes\\up to $k$ tokens};
+\node[box, below=of draft] (verify) {Target verifies draft block\\in one forward pass};
+\node[decision, below=of verify] (accept) {All $k$ tokens\\accepted?};
+\node[box, left=of accept, xshift=-9mm] (bonus) {Commit $k$ tokens\\+ one target bonus token};
+\node[box, right=of accept, xshift=9mm] (correct) {Commit accepted prefix\\+ one corrected target token};
+\node[box, below=of accept, yshift=-2mm] (crop) {Crop/update draft and target\\KV caches to committed prefix};
+\node[decision, below=of crop] (stop) {EOS or max tokens\\reached?};
+\node[box, below=of stop] (end) {Finish sample and\\record runtime/quality fields};
+
+\draw[line] (start) -- (draft);
+\draw[line] (draft) -- (verify);
+\draw[line] (verify) -- (accept);
+\draw[line] (accept) -- node[above, font=\scriptsize] {yes} (bonus);
+\draw[line] (accept) -- node[above, font=\scriptsize] {no} (correct);
+\draw[line] (bonus) |- (crop.west);
+\draw[line] (correct) |- (crop.east);
+\draw[line] (crop) -- (stop);
+\draw[line] (stop) -- node[right, font=\scriptsize] {yes} (end);
+\draw[line] (stop.west) -- ++(-14mm,0) |- node[pos=0.25, left, font=\scriptsize] {no} (draft.west);
+\end{tikzpicture}%
+}
+\caption{Vanilla speculative decoding implementation flow.
+The target model remains the verifier of record; accepted draft prefixes are
+committed, and caches are cropped to preserve exact target-consistent decoding.}
+\label{fig:specdec-impl-flow}
+\end{figure}
+
+\paragraph{Regimes and outputs}
+The same verification core is used for deterministic and stochastic modes,
+with only the sampling policy changed by regime parameters.
+Each configuration writes a dedicated CSV artifact with per-sample runtime,
+token counts, and quality-relevant outputs.

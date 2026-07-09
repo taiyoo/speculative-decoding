@@ -1,0 +1,86 @@
+\section{Introduction}
+
+Autoregressive decoding in large language models (LLMs) is inherently
+sequential: each generated token requires a full forward pass of the target
+model. This constraint directly limits single-stream throughput in interactive
+inference settings. Speculative decoding mitigates this bottleneck by adding a
+smaller draft model that proposes a length-$k$ token block, followed by one
+target-side verification step; modified rejection sampling preserves the target
+distribution~\cite{Leviathan2023, Chen2023specsampling}.
+
+Although speculative decoding is now well studied, deployment guidance remains
+uncertain for consumer-GPU settings. Reported gains in the literature are often
+obtained on data-center hardware and are sensitive to model pairing, proposal
+length, and sampling regime. For practitioners operating on a single RTX-class
+GPU, the key questions are practical: which draft size is worthwhile, which
+$k$ is optimal, and whether deterministic versus stochastic decoding changes
+the speed--quality frontier.
+
+This study addresses three practical gaps for deployment-facing evidence:
+(i) broader hardware/model validation, (ii) clearer sample-level variance and
+statistical testing details, and (iii) explicit positioning of the
+adaptive-$k$ run-set policy as a robustness mechanism rather than a
+speedup-maximizing algorithm.
+
+This direction matters for privacy-sensitive, latency-critical local use,
+including local workstations and edge-side decision-support workflows. We
+therefore position this paper as a hardware-aware characterization study,
+rather than a new decoding algorithm.
+
+Within this scope, the adaptive-$k$ run set is not introduced to exceed the
+peak throughput of the best static speculative setting. Instead, we use an
+adaptive-$k$ policy as a hardware-aware tail-latency guardrail for difficult
+inputs, trading some mean throughput for more controlled runtime behavior under
+acceptance drops.
+
+\subsection{Research questions}
+\label{sec:rqs}
+
+We address four research questions:
+\begin{enumerate}\itemsep0pt
+  \item[\textbf{RQ1.}] How much end-to-end speedup does vanilla
+        speculative decoding deliver against autoregressive decoding on
+      consumer RTX hardware with Qwen2.5 and Qwen3 family pairings, and how
+      close is this to
+        a practical hardware-constrained upper bound?
+  \item[\textbf{RQ2.}] How do draft model size and draft length jointly
+        determine token acceptance and net latency, and what do these trends
+        imply about memory-traffic and kernel-launch overhead on consumer GPUs?
+  \item[\textbf{RQ3.}] How sensitive is the speed--quality trade-off to
+        the sampling regime (deterministic vs.\ stochastic) and to task
+        entropy?
+  \item[\textbf{RQ4.}] Do the ranking trends (optimal $k$, regime preference)
+        transfer across consumer-GPU profiles (desktop RTX4090 vs.
+        RTX5090-laptop), and where do absolute gains fail to transfer?
+\end{enumerate}
+
+\subsection{Contributions}
+\label{sec:contributions}
+
+This paper makes the following contributions:
+\begin{enumerate}\itemsep0pt
+  \item A reproducible consumer-GPU protocol with frozen sample manifests,
+        matched prompts, and two decoding regimes across GSM8K, MMLU subset,
+        and CNN/DailyMail.
+  \item A two-family fixed-policy study combining Qwen2.5 and Qwen3
+        configurations, with $k\in\{4,8,16\}$ and
+        deterministic/stochastic regimes, reported with latency, TTFT, TPOT,
+        acceptance, and quality metrics.
+  \item Cross-hardware validation across desktop RTX4090 and RTX5090-laptop
+        configurations, showing trend portability (best at low $k$,
+        deterministic preference) but non-portable absolute gains.
+  \item Expanded statistical reporting: sample-level
+        mean$\pm$std summaries, one-sided paired $t$-tests with Holm-Bonferroni
+        correction, and Cohen's $d$ effect sizes for each fixed-$k$
+        configuration against its regime-matched baseline.
+  \item An adaptive-$k$ run-set interpretation that prioritizes runtime
+        stability and tail behavior over peak throughput claims.
+\end{enumerate}
+
+The rest of the paper is organized as follows. Section~\ref{sec:related}
+reviews related work. Section~\ref{sec:protocol} defines the experimental
+protocol; Section~\ref{sec:metrics} defines metrics. Section~\ref{sec:impl}
+describes implementation and reproducibility controls. Section~\ref{sec:results}
+reports the main empirical findings, including brief adaptive-$k$
+evidence. Section~\ref{sec:discussion}
+discusses implications, limitations, and conclusions.

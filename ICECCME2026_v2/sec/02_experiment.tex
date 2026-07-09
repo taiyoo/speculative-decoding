@@ -1,0 +1,148 @@
+\section{Experimental Protocol}
+\label{sec:protocol}
+
+\subsection{Datasets and sample sizes}
+
+We evaluate on three benchmarks spanning reasoning, knowledge, and summarization:
+\begin{enumerate}
+    \item \textbf{GSM8K}~\cite{Cobbe2021} test subset: 300 samples.
+    \item \textbf{MMLU}~\cite{Hendrycks2020} subset: 500 samples (5 subjects $\times$ 100 each).
+    \item \textbf{CNN/DailyMail}~\cite{See2017} subset: 200 samples.
+\end{enumerate}
+
+\noindent\textbf{Sampling policy:} Fixed random seed $= 42$, stratified sampling where applicable, and a frozen sample-ID manifest generated before experimentation. Each output CSV records the seed and sample identifier, enabling paired analysis at the sample level.
+
+\subsection{Prompt set}
+
+We use the following fixed prompt templates for each task:
+
+\smallskip\noindent\textbf{GSM8K:}
+\begin{quote}\small
+You are a careful math assistant. Solve the problem step by step and end with
+Final Answer: \textless number\textgreater.\\
+Question: \{question\}
+\end{quote}
+
+\noindent\textbf{MMLU:}
+\begin{quote}\small
+You are a knowledgeable assistant. Choose exactly one option.\\
+Question: \{question\}\\
+Options: A.~\{A\} B.~\{B\} C.~\{C\} D.~\{D\}\\
+Answer:
+\end{quote}
+
+\noindent\textbf{CNN/DailyMail:}
+\begin{quote}\small
+Summarize the following article in 3--4 sentences, preserving key facts and entities.\\
+Article: \{article\}\\
+Summary:
+\end{quote}
+\paragraph{Objective and hypotheses}
+This study quantifies practical speculative-decoding gains on consumer hardware
+under fixed data and prompt controls.
+We test four hypotheses:
+\begin{itemize}
+    \item \textbf{H1:} Same-family speculative decoding yields positive net speedup
+        ($S>1$) over autoregressive decoding.
+    \item \textbf{H2:} Increasing draft length from $k{=}4$ to $k{=}8$ improves
+        speedup, while $k{=}16$ may reduce gains due to additional drafting
+        and verification overhead.
+    \item \textbf{H3:} Increasing $k$ tends to improve accepted block size but can
+        reduce end-to-end speed once drafting/verification overhead dominates.
+    \item \textbf{H4:} Deterministic decoding is more runtime-efficient and quality
+        stable than stochastic decoding for the same draft and $k$.
+\end{itemize}
+
+\paragraph{Hardware and software controls}
+We report two consumer-GPU run families:
+an NVIDIA RTX4090 desktop profile and an RTX5090-laptop profile.
+Both use the same Python runtime entry points, prompt templates,
+tokenizer settings, and serial execution policy to minimize cross-run
+contention. We keep software dependencies pinned within each run family and
+preserve frozen manifests for paired comparison.
+
+\begin{table}[t]
+\centering
+\caption{Hardware profile for the desktop RTX4090 run family.}
+\label{tab:hw-profile}
+\small
+\begin{tabular}{ll}
+\hline
+\textbf{Component} & \textbf{Specification} \\
+\hline
+GPU & NVIDIA RTX4090 GPU \\
+GPU memory & 24 GB GDDR6X \\
+Memory bandwidth & 1008 GB/s \\
+CUDA cores & 16384 \\
+Architecture & Ada Lovelace \\
+Power profile & TGP class 450~W \\
+Software stack & PyTorch + Transformers (pinned env) \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Hardware profile for the RTX5090-laptop run family.}
+\label{tab:hw-profile-5090-laptop}
+\small
+\begin{tabular}{ll}
+\hline
+\textbf{Component} & \textbf{Specification} \\
+\hline
+GPU & NVIDIA GeForce RTX 5090 Laptop GPU \\
+GPU memory & 24 GB GDDR7 \\
+Memory bandwidth & 896 GB/s \\
+CUDA cores & 10496 \\
+Architecture & NVIDIA Blackwell \\
+Power profile & Laptop TGP class up to 150~W (OEM-dependent) \\
+Software stack & PyTorch + Transformers (pinned env) \\
+\hline
+\end{tabular}
+\end{table}
+
+\paragraph{Runtime setup}
+We keep fixed step shapes, pre-allocate static draft/verify buffers, and warm
+up the inference path before measurement. During decoding, each cycle updates
+buffer contents under shape guards and falls back to eager execution when
+required. This preserves output semantics and reduces avoidable runtime-path
+variance in short speculative cycles.
+
+\paragraph{Model pairing}
+We evaluate two same-family pairings.
+For Qwen2.5, the target is Qwen2.5-3B-Instruct with
+Qwen2.5-0.5B-Instruct and Qwen2.5-1.5B-Instruct drafts on the RTX4090 run
+family. For Qwen3, the target is Qwen3-4B-Instruct with a
+Qwen3-0.6B-Instruct draft on RTX4090 and RTX5090-laptop run families.
+For each family, fixed-policy experiments sweep $k\in\{4,8,16\}$ under
+deterministic/stochastic regimes with regime-matched autoregressive baselines.
+All configurations process fixed manifests to preserve paired comparability.
+
+\paragraph{Task-entropy interpretation}
+We treat the three tasks as distinct decoding-entropy regimes to interpret
+acceptance behavior: GSM8K is a lower-entropy chain reasoning with concentrated
+next-token mass; MMLU is medium-entropy constrained QA; CNN/DailyMail is
+higher-entropy open-ended summarization. This framing is used only for
+interpretation of acceptance and quality trends, not as an optimization
+objective.
+
+\paragraph{Decoding regimes and grid}
+Two regimes are evaluated:
+\begin{itemize}
+    \item \textbf{Deterministic:} greedy decoding ($T{=}0.0$, top-$p{=}1.0$; sampling disabled).
+    \item \textbf{Stochastic:} sampling with $T{=}0.7$, top-$p{=}0.9$, and no top-$k$ truncation.
+\end{itemize}
+For the primary fixed-policy matrix, we sweep $k\in\{4,8,16\}$ under both
+regimes (6 configurations), plus regime-matched autoregressive baselines.
+
+\paragraph{Endpoints}
+The primary endpoint is paired wall-clock speedup
+$S = L_{\text{autoregressive}}/L_{\text{spec}}$ as reported by the experiment summary
+artifact for each draft--$k$--regime combination.
+Secondary endpoints include acceptance rate $\alpha$, effective accepted block
+size $B_{\text{eff}}$, mean per-sample latency, throughput (tokens/s),
+task-level quality deltas, time to first token (TTFT), time per output token
+(TPOT), and 99th-percentile (P99) latency. Statistical reporting uses
+sample-level summaries (mean$\pm$std) and one-sided paired $t$-tests with
+Holm-Bonferroni correction and Cohen's $d$ effect sizes, comparing each
+fixed-$k$ configuration against its regime-matched autoregressive baseline.

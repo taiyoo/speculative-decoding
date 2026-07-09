@@ -1,0 +1,22 @@
+\begin{abstract}
+{\bfseries\boldmath
+Speculative decoding is often reported to reduce large language model (LLM)
+latency, but behavior on consumer GPUs remains highly hardware- and
+runtime-dependent. We present a controlled study across two model families
+(Qwen2.5 and Qwen3) and two consumer setups (RTX4090 and RTX5090-laptop)
+under fixed policies ($k\in\{4,8,16\}$; deterministic and stochastic).
+On RTX4090 (Qwen3), the best setting is deterministic $k{=}4$
+($S{=}2.8548$), and speedup degrades monotonically as $k$ increases.
+Deterministic decoding outperforms stochastic decoding at every matched $k$.
+On RTX5090-laptop, the same ordering trends hold (low-$k$ best; deterministic
+$>$ stochastic), but absolute speedups remain below 1 under the tested stack,
+showing limited portability of absolute gains. Sample-level variance,
+time-to-first-token (TTFT), time-per-output-token (TPOT), and Holm-Bonferroni
+corrected paired tests with effect sizes are reported for statistical
+transparency. Qwen2.5 results show the same
+qualitative low-$k$ and deterministic-preference trends, supporting
+cross-family consistency at the trend level. Overall, this work provides
+reproducible, deployment-oriented characterization and policy guidance rather
+than a universally throughput-improving algorithm.
+}
+\end{abstract}

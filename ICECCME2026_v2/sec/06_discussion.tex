@@ -1,0 +1,92 @@
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Main empirical takeaways}
+
+The Qwen2.5 and Qwen3 evidence supports three robust observations.
+First, on RTX4090, speculative decoding can provide substantial acceleration,
+but not for every setting; high-$k$ stochastic can drop below baseline.
+Second, speedup declines as $k$ increases, even when accepted block size grows.
+Third, deterministic decoding consistently outperforms stochastic decoding
+for matched $k$ in both run families.
+
+The cross-hardware extension adds an important qualification.
+While policy ordering trends transfer from RTX4090 to RTX5090-laptop,
+absolute speedup magnitudes do not.
+This supports a practical interpretation: generalization claims should emphasize
+portable trends and decision rules, not fixed throughput numbers.
+The adaptive-$k$ run set was evaluated at a single fixed rescue-threshold,
+window, and cooling configuration in this study, reinforcing its framing as a
+stability-oriented mechanism rather than a tuned throughput optimizer; a
+systematic sweep over these hyperparameters is identified as future work in
+Section~\ref{sec:threats}.
+
+\subsection{Novelty and contribution scope}
+
+This paper's contribution is primarily empirical and systems-oriented.
+We do not claim a new speculative decoding algorithm that universally
+improves throughput.
+Instead, we provide a controlled, reproducible characterization that links
+acceptance dynamics, token timing, and latency tails to practical operating
+choices on consumer hardware.
+
+\subsection{Variance and evaluation depth}
+
+To strengthen rigor, we report sample-level mean$\pm$std summaries,
+time to first token (TTFT), time per output token (TPOT), and
+Holm-Bonferroni-corrected paired $t$-tests with Cohen's $d$ effect sizes.
+These additions improve variability reporting and statistical clarity, and
+show that five of six fixed-$k$ configurations achieve significant,
+large-effect speedup, while stochastic $k{=}16$ does not.
+We also expand quality reporting beyond a single summarization metric
+(ROUGE-L, BLEU, and BERTScore, computed on the real CNN/DailyMail outputs).
+All three metrics move together and show a genuine quality cost under
+speculative decoding relative to the autoregressive baseline, largest at
+$k{=}4$ and partially recovering at higher $k$ -- the reverse of the speed
+trend, indicating a real speed--quality trade-off rather than a free
+lunch at low $k$. We acknowledge that none of these metrics fully capture
+factuality or task-specific utility.
+
+\section{Threats to validity}
+\label{sec:threats}
+
+\textbf{Hardware and runtime dependence.}
+Results remain sensitive to implementation stack and runtime path.
+The RTX4090 and RTX5090-laptop comparison demonstrates that ranking trends can
+transfer while absolute gains diverge.
+
+\textbf{Model-family scope.}
+This study centers on same-family Qwen2.5 and Qwen3 target/draft pairings.
+Cross-family speculative pairings may show different acceptance and quality
+behavior.
+
+\textbf{Evaluation breadth.}
+The benchmark suite covers reasoning, knowledge QA, and summarization, but does
+not exhaust long-context, safety, or factual consistency requirements.
+
+\textbf{Sample-level versus seed-level dispersion.}
+The mean$\pm$std figures reported in Section~\ref{sec:results} reflect
+per-sample dispersion within a single evaluation seed, not run-to-run
+variability across independent seeds. Independent multi-seed repetition of
+full runs was not performed and is left for future work.
+
+\textbf{Adaptive-$k$ hyperparameter scope.}
+The adaptive-$k$ run set was evaluated at a single fixed rescue-threshold,
+window-size, and cooling-period configuration. A systematic ablation across
+these hyperparameters was not performed and is left for future work.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+This paper presents reproducible deployment guidance for
+consumer GPUs using same-family speculative decoding in both Qwen2.5 and
+Qwen3 settings. On RTX4090, deterministic $k{=}4$ remains the strongest
+operating point family-wise, with monotonic degradation as $k$ increases.
+Cross-hardware validation on RTX5090-laptop preserves the same policy ordering
+trend but not the same absolute speedups, emphasizing that portability must be
+interpreted at the trend level.
+
+The adaptive-$k$ run set remains useful as a runtime-stability policy layer,
+but is not presented as a universal throughput optimizer.
+Future work will expand hardware diversity, include additional model families,
+and evaluate longer-context and richer quality diagnostics.

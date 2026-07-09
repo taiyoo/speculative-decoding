@@ -1,0 +1,95 @@
+\documentclass[conference]{IEEEtran}
+
+\makeatletter
+\def\ps@IEEEtitlepagestyle{%
+  \def\@oddfoot{\mycopyrightnotice}%
+  \def\@evenfoot{}%
+}
+\def\mycopyrightnotice{%
+  {}
+  \gdef\mycopyrightnotice{}
+}
+
+
+% Camera-ready flag: set to \camerareadytrue for camera-ready submission
+% Set to \camerareadyfalse for blind-review submission
+\newif\ifcameraready
+\camerareadyfalse
+
+\usepackage{blindtext}
+\usepackage{eso-pic}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{url}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+    
+\usepackage{eso-pic}
+\newcommand\AtPageUpperMyright[1]{\AtPageUpperLeft{%
+ \put(\LenToUnit{0.17\paperwidth},\LenToUnit{-2cm}){%
+     \parbox{0.9\textwidth}{\raggedleft\fontsize{8}{11}\selectfont #1}}%
+ }}%
+\newcommand{\conf}[1]{%
+\AddToShipoutPictureBG*{%
+\AtPageUpperMyright{#1}
+}
+}    
+    
+    
+\begin{document}
+\title{\vspace*{1cm}Characterizing Speculative Decoding Dynamics for Large Language Models on Consumer-Class GPUs}
+
+\ifcameraready
+  \author{
+  \IEEEauthorblockN{Samsu Sempena}
+  \IEEEauthorblockA{The University of Sydney\\
+  ssem0956@uni.sydney.edu.au}
+  \and
+  \IEEEauthorblockN{Zhuohan Cui}
+  \IEEEauthorblockA{The University of Sydney\\
+  zcui0321@uni.sydney.edu.au}
+  }
+\else
+  \author{
+  \IEEEauthorblockN{Anonymous Submission}
+  \IEEEauthorblockA{Author details omitted for double-blind review}
+  }
+\fi
+
+\maketitle
+\ifcameraready
+  \conf{\textit{Proc. of the International Conference on Electrical, Computer, Communications and Mechatronics Engineering (ICECCME 2026) \\
+  15-17 October 2026, Bali, Indonesia}}
+\fi
+
+\input{sec/00_abstract}
+
+\begin{IEEEkeywords}
+speculative decoding, large language models, inference acceleration, benchmarking, reproducibility
+\end{IEEEkeywords}
+
+\input{sec/01_introduction}
+\input{sec/01b_related_work}
+\input{sec/02_experiment}
+\input{sec/03_metrics}
+\input{sec/04_execution}
+\input{sec/05_results}
+\input{sec/06_discussion}
+\ifcameraready
+  \input{sec/07_acknowledgements}
+\fi
+
+{\small
+\bibliographystyle{IEEEtran}
+\bibliography{main}
+}
+
+\end{document}
