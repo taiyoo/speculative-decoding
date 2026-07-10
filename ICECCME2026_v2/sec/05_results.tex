@@ -129,7 +129,27 @@ $45.51\pm8.93$ to $106.03\pm41.23$~ms), consistent with the overhead
 interpretation. This spread reflects genuine per-prompt variability (task
 mix and output-length differences) within each run seed.
 
-We additionally ran a seed-stability extension for Qwen3 RTX4090 at $k{=}4$
+We additionally ran seed-stability extensions for RTX4090 at $k{=}4$ in both
+Qwen2.5 (draft 0.5B) and Qwen3 (draft 0.6B), using seeds $123$ and $999$
+on the same manifests ($n{=}1000$ each).
+
+For Qwen2.5 deterministic decoding, mean latency is
+$3.8422\pm2.9933$~s (seed 123) and $3.8118\pm2.9275$~s (seed 999),
+with TTFT $103.71\pm42.39$~ms and $103.38\pm42.00$~ms,
+TPOT $29.95\pm5.67$~ms and $29.80\pm5.42$~ms,
+acceptance $\alpha{=}0.4371$ in both seeds, and
+$B_{\text{eff}}{=}1.70$ in both seeds.
+For Qwen2.5 stochastic decoding, mean latency is
+$4.0060\pm3.0857$~s (seed 123) and $3.9896\pm3.0692$~s (seed 999),
+with TTFT $106.09\pm43.82$~ms and $106.16\pm44.20$~ms,
+TPOT $31.24\pm5.38$~ms and $31.20\pm5.51$~ms,
+acceptance $\alpha{=}0.4224$ in both seeds, and
+$B_{\text{eff}}{=}1.63$ and $1.64$. Relative to the seed-42 rows in
+Table~\ref{tab:headline-4090-qwen25}, these repeats preserve regime ordering
+and show low seed sensitivity at this operating point.
+
+For Qwen3,
+we additionally ran a seed-stability extension for RTX4090 at $k{=}4$
 using seeds $123$ and $999$ (same manifests, $n{=}1000$ each). For
 deterministic decoding, mean latency is $5.2244\pm4.0698$~s (seed 123) and
 $5.2331\pm4.0705$~s (seed 999), with TTFT
@@ -158,7 +178,7 @@ Stochastic $k{=}16$ is the exception: the corrected test is not significant
 ($d{=}-0.08$, $p_{\text{adj}}=0.996$), consistent with its below-baseline
 mean speedup ($S{=}0.9719$) reported above. These tests use the complete
 seed-42 full-grid matrix; the added seed-123/999 runs are currently available
-for the $k{=}4$ Qwen3 stability extension only.
+for the $k{=}4$ stability extensions in Qwen2.5 and Qwen3.
 
 For CNN/DailyMail (deterministic, $n{=}200$), quality also shifts under
 speculative decoding across all three reported metrics relative to the

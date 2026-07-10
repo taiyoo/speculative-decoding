@@ -10,7 +10,7 @@ We evaluate on three benchmarks spanning reasoning, knowledge, and summarization
     \item \textbf{CNN/DailyMail}~\cite{See2017} subset: 200 samples.
 \end{enumerate}
 
-\noindent\textbf{Sampling policy:} Primary benchmarking uses fixed random seed $= 42$, stratified sampling where applicable, and a frozen sample-ID manifest generated before experimentation. To assess run-to-run stability, we additionally repeated the Qwen3 RTX4090 $k{=}4$ settings (deterministic and stochastic) at seeds $123$ and $999$ on the same manifests. Each output CSV records seed and sample identifier, enabling paired analysis at sample and seed levels where repeats are available.
+\noindent\textbf{Sampling policy:} Primary benchmarking uses fixed random seed $= 42$, stratified sampling where applicable, and a frozen sample-ID manifest generated before experimentation. To assess run-to-run stability, we additionally repeated the RTX4090 $k{=}4$ settings (deterministic and stochastic) at seeds $123$ and $999$ for both Qwen2.5 (draft 0.5B) and Qwen3 (draft 0.6B) on the same manifests. Each output CSV records seed and sample identifier, enabling paired analysis at sample and seed levels where repeats are available.
 
 \subsection{Prompt set}
 
@@ -146,5 +146,5 @@ task-level quality deltas, time to first token (TTFT), time per output token
 sample-level summaries (mean$\pm$std) and one-sided paired $t$-tests with
 Holm-Bonferroni correction and Cohen's $d$ effect sizes, comparing each
 fixed-$k$ configuration against its regime-matched autoregressive baseline.
-For repeated Qwen3 RTX4090 $k{=}4$ settings, we also report seed-to-seed
-stability summaries across seeds $\{42,123,999\}$.
+For repeated RTX4090 $k{=}4$ settings in both Qwen2.5 and Qwen3, we also
+report seed-to-seed stability summaries across seeds $\{42,123,999\}$.
