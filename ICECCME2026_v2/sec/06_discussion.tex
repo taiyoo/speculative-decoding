@@ -38,6 +38,10 @@ Holm-Bonferroni-corrected paired $t$-tests with Cohen's $d$ effect sizes.
 These additions improve variability reporting and statistical clarity, and
 show that five of six fixed-$k$ configurations achieve significant,
 large-effect speedup, while stochastic $k{=}16$ does not.
+We further add a seed-stability extension for Qwen3 RTX4090 at $k{=}4$
+(seeds $123$ and $999$ in addition to seed $42$), which preserves
+deterministic-over-stochastic ordering and shows small seed-to-seed drift in
+acceptance and token timing at this operating point.
 We also expand quality reporting beyond a single summarization metric
 (ROUGE-L, BLEU, and BERTScore, computed on the real CNN/DailyMail outputs).
 All three metrics move together and show a genuine quality cost under
@@ -66,9 +70,11 @@ not exhaust long-context, safety, or factual consistency requirements.
 
 \textbf{Sample-level versus seed-level dispersion.}
 The mean$\pm$std figures reported in Section~\ref{sec:results} reflect
-per-sample dispersion within a single evaluation seed, not run-to-run
-variability across independent seeds. Independent multi-seed repetition of
-full runs was not performed and is left for future work.
+per-sample dispersion within each evaluation seed. We now include repeated
+seed runs (123 and 999) for the Qwen3 RTX4090 $k{=}4$ deterministic and
+stochastic settings, providing initial seed-level stability evidence.
+However, full multi-seed repetition across the entire $k\in\{4,8,16\}$ grid
+and all model/hardware families was not performed and remains future work.
 
 \textbf{Adaptive-$k$ hyperparameter scope.}
 The adaptive-$k$ run set was evaluated at a single fixed rescue-threshold,

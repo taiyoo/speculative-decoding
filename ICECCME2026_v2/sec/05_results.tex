@@ -111,11 +111,11 @@ fixed-policy points are slower than autoregressive baseline.
 This indicates that
 conclusions are more portable than absolute speedup magnitudes.
 
-\subsection{Sample-level dispersion, TTFT/TPOT, and statistical testing detail}
+\subsection{Sample-level and seed-level stability, TTFT/TPOT, and statistical testing detail}
 
 To provide stronger statistical detail, we report sample-level dispersion
-(mean$\pm$std across the $n{=}1000$ evaluated samples per configuration,
-single-seed) alongside the ratio-of-means speedup in
+(mean$\pm$std across the $n{=}1000$ evaluated samples per configuration)
+alongside the ratio-of-means speedup in
 Table~\ref{tab:headline-4090}.
 Per-sample deterministic speedup is $2.7561\pm0.5950$ ($k{=}4$),
 $2.0010\pm0.6147$ ($k{=}8$), and $1.3549\pm0.6533$ ($k{=}16$);
@@ -127,9 +127,23 @@ Table~\ref{tab:headline-4090} exactly, while TPOT widens correspondingly
 (deterministic: $41.23\pm9.59$ to $94.24\pm39.46$~ms; stochastic:
 $45.51\pm8.93$ to $106.03\pm41.23$~ms), consistent with the overhead
 interpretation. This spread reflects genuine per-prompt variability (task
-mix and output-length differences) within a single seed rather than
-run-to-run measurement noise; independent multi-seed repetition of full
-runs is noted as a remaining limitation in Section~\ref{sec:threats}.
+mix and output-length differences) within each run seed.
+
+We additionally ran a seed-stability extension for Qwen3 RTX4090 at $k{=}4$
+using seeds $123$ and $999$ (same manifests, $n{=}1000$ each). For
+deterministic decoding, mean latency is $5.2244\pm4.0698$~s (seed 123) and
+$5.2331\pm4.0705$~s (seed 999), with TTFT
+$141.14\pm74.33$~ms and $141.56\pm74.90$~ms, TPOT
+$44.05\pm10.23$~ms and $44.16\pm10.27$~ms, acceptance
+$\alpha{=}0.3354$ in both seeds, and $B_{\text{eff}}{=}1.31$ in both seeds.
+For stochastic decoding, mean latency is $6.0610\pm4.7974$~s (seed 123) and
+$5.7658\pm4.5195$~s (seed 999), with TTFT
+$143.66\pm74.88$~ms and $143.79\pm74.89$~ms, TPOT
+$50.02\pm11.00$~ms and $47.87\pm9.76$~ms, acceptance
+$\alpha{=}0.2750$ and $0.2942$, and
+$B_{\text{eff}}{=}1.07$ and $1.15$. Relative to the seed-42 row in
+Table~\ref{tab:headline-4090}, these repeats preserve regime ordering and
+show modest seed sensitivity at this operating point.
 
 We further report one-sided paired $t$-tests ($H_0{:}\ S \le 1$) comparing
 each fixed-$k$ configuration against its regime-matched autoregressive
@@ -142,7 +156,9 @@ $p_{\text{adj}}<10^{-18}$), and stochastic $k{=}4$ ($d{=}1.24$,
 $p_{\text{adj}}<10^{-202}$), $k{=}8$ ($d{=}1.13$, $p_{\text{adj}}<10^{-179}$).
 Stochastic $k{=}16$ is the exception: the corrected test is not significant
 ($d{=}-0.08$, $p_{\text{adj}}=0.996$), consistent with its below-baseline
-mean speedup ($S{=}0.9719$) reported above.
+mean speedup ($S{=}0.9719$) reported above. These tests use the complete
+seed-42 full-grid matrix; the added seed-123/999 runs are currently available
+for the $k{=}4$ Qwen3 stability extension only.
 
 For CNN/DailyMail (deterministic, $n{=}200$), quality also shifts under
 speculative decoding across all three reported metrics relative to the
