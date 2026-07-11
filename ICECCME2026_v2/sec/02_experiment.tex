@@ -10,7 +10,7 @@ We evaluate on three benchmarks spanning reasoning, knowledge, and summarization
     \item \textbf{CNN/DailyMail}~\cite{See2017} subset: 200 samples.
 \end{enumerate}
 
-\noindent\textbf{Sampling policy:} Primary benchmarking uses fixed random seed $= 42$, stratified sampling where applicable, and a frozen sample-ID manifest generated before experimentation. To assess run-to-run stability, we additionally repeated the RTX4090 $k{=}4$ settings (deterministic and stochastic) at seeds $123$ and $999$ for both Qwen2.5 (draft 0.5B) and Qwen3 (draft 0.6B) on the same manifests. Each output CSV records seed and sample identifier, enabling paired analysis at sample and seed levels where repeats are available.
+\noindent\textbf{Sampling policy:} Primary benchmarking uses fixed random seed $= 42$, stratified sampling where applicable, and a frozen sample-ID manifest generated before experimentation. To assess run-to-run stability, we additionally repeated the RTX4090 and RTX5090-laptop $k{=}4$ settings (deterministic and stochastic) at seeds $123$ and $999$ for both Qwen2.5 (draft 0.5B) and Qwen3 (draft 0.6B) on the same manifests. Each output CSV records seed and sample identifier, enabling paired analysis at sample and seed levels where repeats are available.
 
 \subsection{Prompt set}
 
@@ -112,7 +112,8 @@ variance in short speculative cycles.
 We evaluate two same-family pairings.
 For Qwen2.5, the target is Qwen2.5-3B-Instruct with
 Qwen2.5-0.5B-Instruct and Qwen2.5-1.5B-Instruct drafts on the RTX4090 run
-family. For Qwen3, the target is Qwen3-4B-Instruct with a
+family, with the 0.5B $k{=}4$ stability setting also repeated on
+RTX5090-laptop. For Qwen3, the target is Qwen3-4B-Instruct with a
 Qwen3-0.6B-Instruct draft on RTX4090 and RTX5090-laptop run families.
 For each family, fixed-policy experiments sweep $k\in\{4,8,16\}$ under
 deterministic/stochastic regimes with regime-matched autoregressive baselines.
@@ -146,5 +147,6 @@ task-level quality deltas, time to first token (TTFT), time per output token
 sample-level summaries (mean$\pm$std) and one-sided paired $t$-tests with
 Holm-Bonferroni correction and Cohen's $d$ effect sizes, comparing each
 fixed-$k$ configuration against its regime-matched autoregressive baseline.
-For repeated RTX4090 $k{=}4$ settings in both Qwen2.5 and Qwen3, we also
-report seed-to-seed stability summaries across seeds $\{42,123,999\}$.
+For repeated RTX4090 and RTX5090-laptop $k{=}4$ settings in both Qwen2.5 and
+Qwen3, we also report seed-to-seed stability summaries across seeds
+$\{42,123,999\}$ where the seed-42 primary result is available.

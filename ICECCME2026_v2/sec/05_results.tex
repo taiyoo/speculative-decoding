@@ -165,6 +165,29 @@ $B_{\text{eff}}{=}1.07$ and $1.15$. Relative to the seed-42 row in
 Table~\ref{tab:headline-4090}, these repeats preserve regime ordering and
 show modest seed sensitivity at this operating point.
 
+The RTX5090-laptop repetitions show the same stability pattern. For Qwen2.5
+deterministic decoding, seeds 123 and 999 give mean latency
+$4.7661\pm3.6604$~s and $4.7715\pm3.6609$~s, TTFT
+$159.32\pm125.05$~ms and $159.36\pm125.69$~ms, TPOT
+$36.94\pm6.87$~ms and $37.03\pm6.89$~ms, $\alpha{=}0.4380$ in both,
+and $B_{\text{eff}}{=}1.70$ in both. Its stochastic runs give latency
+$5.0624\pm3.8766$~s and $4.9551\pm3.8015$~s, TTFT
+$163.88\pm123.57$~ms and $162.69\pm126.36$~ms, TPOT
+$39.40\pm7.01$~ms and $38.53\pm7.02$~ms, $\alpha{=}0.4222$ and $0.4221$,
+and $B_{\text{eff}}{=}1.64$ in both.
+
+For Qwen3 on RTX5090-laptop, deterministic seeds 123 and 999 give mean
+latency $6.3615\pm4.9995$~s and $6.2634\pm4.8117$~s, TTFT
+$209.66\pm174.07$~ms and $209.76\pm175.92$~ms, TPOT
+$52.66\pm12.03$~ms and $52.65\pm12.31$~ms, $\alpha{=}0.3346$ in both,
+and $B_{\text{eff}}{=}1.31$ in both. Its stochastic runs give latency
+$7.0855\pm5.5652$~s and $6.7306\pm5.2651$~s, TTFT
+$208.23\pm176.22$~ms and $207.53\pm176.52$~ms, TPOT
+$57.87\pm12.39$~ms and $55.24\pm11.16$~ms, $\alpha{=}0.2757$ and $0.2949$,
+and $B_{\text{eff}}{=}1.08$ and $1.15$. Across both families, deterministic
+decoding remains faster than stochastic at $k{=}4$, and seed-to-seed changes
+are small relative to the per-sample dispersion.
+
 We further report one-sided paired $t$-tests ($H_0{:}\ S \le 1$) comparing
 each fixed-$k$ configuration against its regime-matched autoregressive
 baseline, paired by sample, with Holm-Bonferroni correction across all six
@@ -178,7 +201,8 @@ Stochastic $k{=}16$ is the exception: the corrected test is not significant
 ($d{=}-0.08$, $p_{\text{adj}}=0.996$), consistent with its below-baseline
 mean speedup ($S{=}0.9719$) reported above. These tests use the complete
 seed-42 full-grid matrix; the added seed-123/999 runs are currently available
-for the $k{=}4$ stability extensions in Qwen2.5 and Qwen3.
+for the $k{=}4$ stability extensions in Qwen2.5 and Qwen3 on both hardware
+setups.
 
 For CNN/DailyMail (deterministic, $n{=}200$), quality also shifts under
 speculative decoding across all three reported metrics relative to the
