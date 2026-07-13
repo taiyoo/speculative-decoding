@@ -61,45 +61,25 @@ tokenizer settings, and serial execution policy to minimize cross-run
 contention. We keep software dependencies pinned within each run family and
 preserve frozen manifests for paired comparison.
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
-\caption{Hardware profile for the desktop RTX4090 run family.}
+\caption{Consumer-GPU run-family profiles.}
 \label{tab:hw-profile}
-\small
-\begin{tabular}{ll}
-\hline
-\textbf{Component} & \textbf{Specification} \\
-\hline
-GPU & NVIDIA RTX4090 GPU \\
-GPU memory & 24 GB GDDR6X \\
-Memory bandwidth & 1008 GB/s \\
-CUDA cores & 16384 \\
-Architecture & Ada Lovelace \\
-Power profile & TGP class 450~W \\
-Software stack & PyTorch + Transformers (pinned env) \\
-\hline
-\end{tabular}
-\end{table}
-
-\begin{table}[t]
-\centering
-\caption{Hardware profile for the RTX5090-laptop run family.}
 \label{tab:hw-profile-5090-laptop}
 \small
-\begin{tabular}{ll}
+\begin{tabular}{lll}
 \hline
-\textbf{Component} & \textbf{Specification} \\
+\textbf{Component} & \textbf{RTX4090 desktop} & \textbf{RTX5090 laptop} \\
 \hline
-GPU & NVIDIA GeForce RTX 5090 Laptop GPU \\
-GPU memory & 24 GB GDDR7 \\
-Memory bandwidth & 896 GB/s \\
-CUDA cores & 10496 \\
-Architecture & NVIDIA Blackwell \\
-Power profile & Laptop TGP class up to 150~W (OEM-dependent) \\
-Software stack & PyTorch + Transformers (pinned env) \\
+GPU memory & 24 GB GDDR6X & 24 GB GDDR7 \\
+Memory bandwidth & 1008 GB/s & 896 GB/s \\
+CUDA cores & 16384 & 10496 \\
+Architecture & Ada Lovelace & Blackwell \\
+Power profile & 450~W TGP class & Up to 150~W TGP (OEM-dependent) \\
+Software stack & \multicolumn{2}{c}{PyTorch + Transformers (pinned per run family)} \\
 \hline
 \end{tabular}
-\end{table}
+\end{table*}
 
 \paragraph{Runtime setup}
 We keep fixed step shapes, pre-allocate static draft/verify buffers, and warm
@@ -119,14 +99,6 @@ For each family, fixed-policy experiments sweep $k\in\{4,8,16\}$ under
 deterministic/stochastic regimes with regime-matched autoregressive baselines.
 All configurations process fixed manifests to preserve paired comparability.
 
-\paragraph{Task-entropy interpretation}
-We treat the three tasks as distinct decoding-entropy regimes to interpret
-acceptance behavior: GSM8K is a lower-entropy chain reasoning with concentrated
-next-token mass; MMLU is medium-entropy constrained QA; CNN/DailyMail is
-higher-entropy open-ended summarization. This framing is used only for
-interpretation of acceptance and quality trends, not as an optimization
-objective.
-
 \paragraph{Decoding regimes and grid}
 Two regimes are evaluated:
 \begin{itemize}
@@ -138,15 +110,8 @@ regimes (6 configurations), plus regime-matched autoregressive baselines.
 
 \paragraph{Endpoints}
 The primary endpoint is paired wall-clock speedup
-$S = L_{\text{autoregressive}}/L_{\text{spec}}$ as reported by the experiment summary
-artifact for each draft--$k$--regime combination.
-Secondary endpoints include acceptance rate $\alpha$, effective accepted block
-size $B_{\text{eff}}$, mean per-sample latency, throughput (tokens/s),
-task-level quality deltas, time to first token (TTFT), time per output token
-(TPOT), and 99th-percentile (P99) latency. Statistical reporting uses
-sample-level summaries (mean$\pm$std) and one-sided paired $t$-tests with
-Holm-Bonferroni correction and Cohen's $d$ effect sizes, comparing each
-fixed-$k$ configuration against its regime-matched autoregressive baseline.
-For repeated RTX4090 and RTX5090-laptop $k{=}4$ settings in both Qwen2.5 and
-Qwen3, we also report seed-to-seed stability summaries across seeds
-$\{42,123,999\}$ where the seed-42 primary result is available.
+$S=L_{\text{autoregressive}}/L_{\text{spec}}$. Table~\ref{tab:metrics}
+defines secondary runtime, acceptance, and quality endpoints. We report
+sample-level mean$\pm$std and one-sided paired $t$-tests with Holm--Bonferroni
+correction and Cohen's $d$ against regime-matched baselines. Repeat-seed
+summaries are limited to $k{=}4$ for both families and devices.

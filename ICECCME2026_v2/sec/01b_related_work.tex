@@ -1,12 +1,9 @@
 \section{Related Work}
 \label{sec:related}
 
-Prior work on accelerating LLM inference falls into four broad categories
-relevant to this study: (i) vanilla speculative decoding with a separate
-draft model, (ii) architectural modifications that reduce or eliminate
-drafting cost, (iii) diffusion-based parallel drafters, and (iv) cascaded
-or precision-oriented systems techniques. We review each in turn before
-positioning this paper's adaptive-$k$ contribution relative to them.
+Relevant LLM inference work spans vanilla speculative decoding,
+architectural methods that reduce drafting cost, diffusion-based drafters,
+and deployment-oriented systems techniques.
 
 \paragraph{Vanilla speculative decoding}
 Leviathan \emph{et al.}~\cite{Leviathan2023} introduced the canonical
@@ -31,14 +28,11 @@ parallel decoding within a single model.
 \paragraph{Reducing drafting cost}
 Medusa~\cite{Cai2024Medusa} eliminates the external draft by attaching
 multiple prediction heads to the target model and verifying the resulting
-candidate tree in one forward pass. The EAGLE
-family~\cite{Li2024Eagle,Li2024Eagle2,Li2025Eagle3} keeps an external draft
-but conditions it on target hidden features, reporting substantial speedups
-under their settings. Despite these refinements, $T_{\text{draft}}$ remains
-linear in $k$, forcing EAGLE-3 to a single transformer layer and capping
-reported production-framework serving throughput (e.g., in SGLang/vLLM) at
-about $2$--$3\times$ on strong GPUs, well below the paper's idealized
-best-case decoding speedup of up to $6.5\times$.
+candidate tree in one pass. The EAGLE
+family~\cite{Li2024Eagle,Li2024Eagle2,Li2025Eagle3} retains an external draft
+conditioned on target hidden features. These methods reduce drafting cost but
+remain sensitive to model, runtime, and serving conditions, motivating
+end-to-end measurement on deployment hardware.
 
 \paragraph{Diffusion-based drafters}
 Recent work directly attacks the linear-in-$k$ drafting bottleneck.
@@ -60,11 +54,9 @@ coordinated by a Dynamic Tree Cascade (DyTC) algorithm~\cite{Ning2025CASSpec}.
 Speculative Cascades applies a deferral rule, invoking larger models only for
 hard inputs while routing easier cases to smaller models~\cite{Narasimhan2024FasterCascades}.
 Although these methods report strong acceleration, they typically require
-target-side architectural changes, extra training, or complex serving stacks.
-By contrast, our adaptive-$k$ policy framing is a training-free, architecture-agnostic runtime
-controller that adapts decisions online from acceptance signals, targeting
-runtime stability under consumer-GPU constraints rather than peak data-center
-throughput.
+target-side changes, additional training, or complex serving stacks. Our
+study instead evaluates unmodified, same-family draft and target models
+through a conventional draft--verify loop.
 
 \paragraph{Precision and systems deployment}
 Deployment-oriented inference work shows that quantization and memory traffic
@@ -84,11 +76,7 @@ edge language interfaces where bounded latency and predictable runtime matter
 as much as peak throughput.
 
 \paragraph{Position of this work}
-This work focuses on a controlled consumer-GPU evaluation of vanilla
-speculative decoding with same-family model pairing (Qwen3-4B target,
-0.6B draft) under deterministic and stochastic regimes. Rather than
-competing with data-center throughput claims, we characterize practical
-operating points across desktop RTX4090 and RTX5090-laptop profiles,
-including acceptance dynamics, quality drift, and runtime-sensitive
-configuration choices. We then use these results to evaluate an adaptive-$k$
-run set as a runtime-stability extension.
+This work evaluates vanilla speculative decoding with Qwen2.5 and Qwen3
+same-family pairings under deterministic and stochastic regimes. Rather than
+competing with data-center throughput claims, it characterizes acceptance,
+quality, and latency across desktop RTX4090 and RTX5090-laptop profiles.

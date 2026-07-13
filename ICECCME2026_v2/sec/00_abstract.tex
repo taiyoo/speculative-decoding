@@ -1,22 +1,15 @@
 \begin{abstract}
-{\bfseries\boldmath
+\bfseries\boldmath
 Speculative decoding is often reported to reduce large language model (LLM)
-latency, but behavior on consumer GPUs remains highly hardware- and
-runtime-dependent. We present a controlled study across two model families
-(Qwen2.5 and Qwen3) and two consumer setups (RTX4090 and RTX5090-laptop)
-under fixed policies ($k\in\{4,8,16\}$; deterministic and stochastic).
-On RTX4090 (Qwen3), the best setting is deterministic $k{=}4$
-($S{=}2.8548$), and speedup degrades monotonically as $k$ increases.
-Deterministic decoding outperforms stochastic decoding at every matched $k$.
-On RTX5090-laptop, the same ordering trends hold (low-$k$ best; deterministic
-$>$ stochastic), but absolute speedups remain below 1 under the tested stack,
-showing limited portability of absolute gains. Sample-level variance,
-time-to-first-token (TTFT), time-per-output-token (TPOT), and Holm-Bonferroni
-corrected paired tests with effect sizes are reported for statistical
-transparency. Qwen2.5 results show the same
-qualitative low-$k$ and deterministic-preference trends, supporting
-cross-family consistency at the trend level. Overall, this work provides
-reproducible, deployment-oriented characterization and policy guidance rather
-than a universally throughput-improving algorithm.
-}
+latency, yet gains on consumer GPUs are hardware- and runtime-dependent. We
+evaluate Qwen2.5 and Qwen3 pairings on RTX4090 and RTX5090-laptop under
+deterministic and stochastic policies with $k\in\{4,8,16\}$. Qwen3 reaches
+$2.8548\times$ speedup on RTX4090 at deterministic $k{=}4$, but speedup falls
+monotonically with $k$. Under the tested RTX5090-laptop stack, every policy is
+slower than its autoregressive baseline despite preserving the relative
+low-$k$ and deterministic preference. Qwen2.5 shows the same RTX4090 policy
+ranking. We report TTFT, TPOT, acceptance, sample dispersion, targeted
+repeat-seed runs, and Holm--Bonferroni-corrected paired tests with effect
+sizes. The results show that policy ranking is more portable than absolute
+speedup and that deployment claims require measurement on the target stack.
 \end{abstract}

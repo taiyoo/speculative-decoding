@@ -33,37 +33,23 @@ the decode loop.
 Figure~\ref{fig:specdec-impl-flow} summarizes this implementation flow.
 
 \paragraph{CUDA-graph runtime note}
-In the Qwen3 run families, graph-capture metadata differs by hardware.
-The RTX4090 fixed-policy matrix reports stable captured execution, whereas
-RTX5090-laptop sensitivity runs show that graph-enabled toggles do not
-consistently improve end-to-end latency. We therefore treat CUDA-graph usage
-as an implementation detail rather than a standalone performance claim, and
-base conclusions on end-to-end fixed-policy speedup trends.
+Graph-capture metadata differs by run family. The Qwen3 RTX4090 summary
+records captured execution with capture rate 1.0, whereas the Qwen2.5
+RTX4090 summary records pending capture with rate 0.0. RTX5090-laptop
+sensitivity runs do not show a consistent latency benefit from graph-enabled
+toggles. CUDA graphs are therefore reported as runtime context, not as an
+independently evaluated optimization.
 
-\paragraph{Dynamic-scheduling bottleneck in native PyTorch paths}
-Fallback eager execution should not be viewed only as an implementation miss.
-It reflects a broader systems challenge for end-to-end dynamic speculation.
-When acceptance-dependent control flow, sampling branches, and cache updates
-change per step, preserving lossless semantics often requires CPU-visible
-orchestration between kernels. Without a deeper runtime/kernel redesign, this
-serial control overhead can erase expected gains from speculative parallelism,
-as also emphasized in modern inference runtime roadmaps for dynamic
-scheduling.
+\paragraph{Dynamic control flow}
+Acceptance-dependent branches and cache updates require host-visible
+orchestration in the native PyTorch loop and can prevent full graph capture.
+Because this overhead was not isolated experimentally, we treat it as a
+possible explanation for runtime sensitivity rather than a measured cause.
 
-\paragraph{Tokenizer isomorphism as an enabling design choice}
-Same-family draft/target pairing is a central engineering decision in this
-study. Because the draft and target tokenizers are isomorphic, speculative
-verification avoids per-step vocabulary alignment and token translation.
-Cross-tokenizer pipelines introduce additional CPU-side mapping overhead that
-can materially reduce or negate speculative speedup on constrained hardware.
-
-\paragraph{Adaptive-$k$ implementation note}
-For adaptive-$k$ runs, we reuse the same draft--verify core and switch only the policy
-controller: $k$ is adapted online from recent acceptance behavior with guarded
-fallback to stable paths when acceptance collapses. We treat the adaptive-$k$
-run set as a runtime
-policy layer over the fixed-policy implementation, not as a separate decoding
-algorithm.
+\paragraph{Tokenizer scope}
+Same-family pairings use matching tokenizers and avoid vocabulary alignment
+inside verification. Cross-tokenizer pairings are outside this study; their
+mapping overhead and acceptance behavior require separate evaluation.
 
 \begin{figure}[t]
 \centering
