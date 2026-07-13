@@ -1,0 +1,107 @@
+\relax 
+\citation{Leviathan2023,Chen2023specsampling}
+\citation{Leviathan2023}
+\citation{Chen2023specsampling}
+\citation{Stern2018blockwise}
+\@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {I-A}}Research questions}{1}{}\protected@file@percent }
+\newlabel{sec:rqs}{{\mbox  {I-A}}{1}{}{subsection.1.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {I-B}}Contributions}{1}{}\protected@file@percent }
+\newlabel{sec:contributions}{{\mbox  {I-B}}{1}{}{subsection.1.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {II}Related Work}{1}{}\protected@file@percent }
+\newlabel{sec:related}{{II}{1}{}{section.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0a}Vanilla speculative decoding}{1}{}\protected@file@percent }
+\newlabel{eq:specdec-latency}{{1}{1}{}{equation.1}{}}
+\citation{Cai2024Medusa}
+\citation{Li2024Eagle,Li2024Eagle2,Li2025Eagle3}
+\citation{Li2025DiffuSpec}
+\citation{Sandler2025SpecDiff2}
+\citation{An2025PARD}
+\citation{Chen2026dflash}
+\citation{Ning2025CASSpec}
+\citation{Narasimhan2024FasterCascades}
+\citation{Dettmers2022Int8}
+\citation{Cobbe2021}
+\citation{Hendrycks2020}
+\citation{See2017}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0b}Reducing drafting cost}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0c}Diffusion-based drafters}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0d}Cascaded speculative control}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0e}Precision and systems deployment}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0f}Distributed and edge relevance}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {II-}0g}Position of this work}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {III}Experimental Protocol}{2}{}\protected@file@percent }
+\newlabel{sec:protocol}{{III}{2}{}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Datasets and sample sizes}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}Prompt set}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0a}Objective and hypotheses}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0b}Hardware and software controls}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0c}Runtime setup}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0d}Model pairing}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0e}Decoding regimes and grid}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {III-B}0f}Endpoints}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Evaluation metrics}{3}{}\protected@file@percent }
+\newlabel{sec:metrics}{{IV}{3}{}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Success criteria}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {V}Implementation and Reproducibility}{3}{}\protected@file@percent }
+\newlabel{sec:impl}{{V}{3}{}{section.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {V-}0a}Code organization}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {V-}0b}Model loading and precision}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {V-}0c}Baselines}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {V-}0d}Speculative decoding implementation.}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {V-}0e}CUDA-graph runtime note}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {V-}0f}Dynamic control flow}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {V-}0g}Tokenizer scope}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {V-}0h}Regimes and outputs}{3}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Consumer-GPU run-family profiles.}}{4}{}\protected@file@percent }
+\newlabel{tab:hw-profile}{{I}{4}{}{table.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Metric definitions used in this study.}}{4}{}\protected@file@percent }
+\newlabel{tab:metrics}{{II}{4}{}{table.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Results}{4}{}\protected@file@percent }
+\newlabel{sec:results}{{VI}{4}{}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}RQ1: Does speculative decoding accelerate inference?}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}RQ2: How do $k$ and acceptance affect net latency?}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-C}}RQ3: Deterministic versus stochastic regime}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-D}}RQ4: Cross-hardware portability (RTX4090 vs RTX5090-laptop)}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-E}}Variability, token timing, and statistical tests}{4}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Qwen2.5 fixed-policy results on RTX4090 (target: 3B, draft: 0.5B) against regime-matched autoregressive baselines. Speedup is computed as a ratio of means against the corresponding baseline.}}{5}{}\protected@file@percent }
+\newlabel{tab:headline-4090-qwen25}{{III}{5}{}{table.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Qwen3 fixed-policy results on RTX4090 against regime-matched autoregressive baselines. Speedup is computed as a ratio of means against the corresponding baseline.}}{5}{}\protected@file@percent }
+\newlabel{tab:headline-4090}{{IV}{5}{}{table.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Vanilla speculative decoding implementation flow. The target model remains the verifier of record; accepted draft prefixes are committed, and caches are cropped to preserve exact target-consistent decoding.}}{5}{}\protected@file@percent }
+\newlabel{fig:specdec-impl-flow}{{1}{5}{}{figure.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Qwen3 fixed-policy results on RTX5090-laptop. Ordering trends are preserved (best at low $k$, deterministic $>$ stochastic), but absolute speedups are below 1 under the tested runtime stack.}}{5}{}\protected@file@percent }
+\newlabel{tab:headline-5090}{{V}{5}{}{table.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-F}}Hypothesis resolution}{5}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Expanded fixed-policy and stability comparison. (a) Qwen2.5 and Qwen3 speedup on RTX4090; (b) Qwen3 speedup on RTX4090 and RTX5090-laptop; (c) Qwen3 acceptance-rate portability; and (d) the change in mean latency from repeat seed 123 to seed 999 at $k{=}4$ for both model families and hardware profiles. Panels (a)--(c) use the primary seed-42 runs and regime-matched autoregressive baselines. The dotted line in (a)--(b) marks baseline parity ($S{=}1$).}}{6}{}\protected@file@percent }
+\newlabel{fig:specdec-vs-baseline-metrics}{{2}{6}{}{figure.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VII}Discussion}{6}{}\protected@file@percent }
+\newlabel{sec:discussion}{{VII}{6}{}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-A}}Main empirical takeaways}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-B}}Novelty and contribution scope}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-C}}Variance and evaluation depth}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {VIII}Threats to validity}{6}{}\protected@file@percent }
+\newlabel{sec:threats}{{VIII}{6}{}{section.8}{}}
+\bibstyle{IEEEtran}
+\bibdata{main}
+\bibcite{Leviathan2023}{1}
+\bibcite{Chen2023specsampling}{2}
+\bibcite{Stern2018blockwise}{3}
+\bibcite{Cai2024Medusa}{4}
+\bibcite{Li2024Eagle}{5}
+\bibcite{Li2024Eagle2}{6}
+\bibcite{Li2025Eagle3}{7}
+\bibcite{Li2025DiffuSpec}{8}
+\bibcite{Sandler2025SpecDiff2}{9}
+\bibcite{An2025PARD}{10}
+\bibcite{Chen2026dflash}{11}
+\bibcite{Ning2025CASSpec}{12}
+\bibcite{Narasimhan2024FasterCascades}{13}
+\bibcite{Dettmers2022Int8}{14}
+\bibcite{Cobbe2021}{15}
+\bibcite{Hendrycks2020}{16}
+\bibcite{See2017}{17}
+\@writefile{toc}{\contentsline {section}{\numberline {IX}Conclusion}{7}{}\protected@file@percent }
+\newlabel{sec:conclusion}{{IX}{7}{}{section.9}{}}
+\@writefile{toc}{\contentsline {section}{References}{7}{}\protected@file@percent }
+\gdef \@abspage@last{7}

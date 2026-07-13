@@ -8,7 +8,7 @@ $2.8548\times$ speedup on RTX4090 at deterministic $k{=}4$, but speedup falls
 monotonically with $k$. Under the tested RTX5090-laptop stack, every policy is
 slower than its autoregressive baseline despite preserving the relative
 low-$k$ and deterministic preference. Qwen2.5 shows the same RTX4090 policy
-ranking. We report TTFT, TPOT, acceptance, sample dispersion, targeted
+ranking. We report time-to-first-token (TTFT), time-per-output-token (TPOT), acceptance, sample dispersion, targeted
 repeat-seed runs, and Holm--Bonferroni-corrected paired tests with effect
 sizes. The results show that policy ranking is more portable than absolute
 speedup and that deployment claims require measurement on the target stack.

@@ -59,13 +59,12 @@ an NVIDIA RTX4090 desktop profile and an RTX5090-laptop profile.
 Both use the same Python runtime entry points, prompt templates,
 tokenizer settings, and serial execution policy to minimize cross-run
 contention. We keep software dependencies pinned within each run family and
-preserve frozen manifests for paired comparison.
+preserve frozen manifests for paired comparison (Table~\ref{tab:hw-profile}).
 
 \begin{table*}[t]
 \centering
 \caption{Consumer-GPU run-family profiles.}
 \label{tab:hw-profile}
-\label{tab:hw-profile-5090-laptop}
 \small
 \begin{tabular}{lll}
 \hline

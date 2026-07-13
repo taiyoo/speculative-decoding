@@ -28,8 +28,6 @@ CNN/DailyMail BERTScore & $Q_{\text{bert}}$ & BERTScore F1 (DistilBERT-base-unca
 Quality delta & $\Delta Q$ & $Q_{\text{spec}} - Q_{\text{base}}$ & points & $\approx 0$ or $+$ \\
 Speedup significance & $p_S$ & one-sided paired $t$-test for $H_0: S\le 1$, Holm-Bonferroni corrected & p-value & Lower \\
 Speedup effect size & $d_S$ & Cohen's $d$ for paired baseline/speculative latency & $\sigma$ units & Higher \\
-Speedup dispersion & $\sigma_S$ & std($S$ over evaluated samples within one seed) & $\times$ & Lower \\
-Seed-level stability & $\sigma_{\text{seed}}$ & std(metric mean across repeated seeds for the same config) & metric unit & Lower \\
 \hline
 \end{tabular}
 \end{table*}

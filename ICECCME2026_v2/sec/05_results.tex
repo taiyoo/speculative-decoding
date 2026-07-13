@@ -57,7 +57,8 @@ $2.8548\times$). Qwen3 stochastic $k{=}16$ is the exception
 
 \subsection{RQ2: How do $k$ and acceptance affect net latency?}
 
-Larger $k$ increases $B_{\text{eff}}$ but reduces end-to-end speed. Mean
+Larger $k$ increases $B_{\text{eff}}$ but reduces end-to-end speed, the
+overhead inflection predicted by Eq.~\ref{eq:specdec-latency}. Mean
 speedup falls from $2.9164$ to $1.8118$ for Qwen2.5 and from $2.6673$ to
 $1.0405$ for Qwen3 between $k{=}4$ and $k{=}16$. Thus, additional drafting
 and verification cost dominates the accepted-block benefit in this range.
@@ -93,7 +94,7 @@ but absolute speedups are below 1 under the tested runtime stack.}
 \end{tabular}
 \end{table}
 
-Cross-hardware validation reverses the practical outcome: all six
+Cross-hardware validation (Table~\ref{tab:headline-5090}) reverses the practical outcome: all six
 RTX5090-laptop settings are slower than their autoregressive baselines
 ($S{=}0.2222$--$0.6743$). Relative ordering remains consistent---low $k$ and
 deterministic decoding perform best---but RTX4090 speedups do not transfer.
@@ -136,10 +137,10 @@ establish seed stability for $k{=}8$ or $16$.
 
 One-sided paired $t$-tests ($H_0{:}\ S\leq1$), paired by sample and corrected
 across six Qwen3 RTX4090 configurations using Holm--Bonferroni, confirm
-speedup for deterministic $k{=}4$, $8$, and $16$ ($d{=}1.18$, $1.10$, and
-$0.29$; all $p_{\mathrm{adj}}<10^{-18}$) and stochastic $k{=}4$ and $8$
-($d{=}1.24$ and $1.13$; both $p_{\mathrm{adj}}<10^{-179}$). Stochastic
-$k{=}16$ is not significant ($d{=}-0.08$, $p_{\mathrm{adj}}{=}0.996$),
+speedup for deterministic $k{=}4$, $8$, and $16$ ($d_S{=}1.18$, $1.10$, and
+$0.29$; all $p_S<10^{-18}$) and stochastic $k{=}4$ and $8$
+($d_S{=}1.24$ and $1.13$; both $p_S<10^{-179}$). Stochastic
+$k{=}16$ is not significant ($d_S{=}-0.08$, $p_S{=}0.996$),
 consistent with its below-baseline mean. Tests use the seed-42 full grid;
 repeat seeds cover $k{=}4$ only.
 
