@@ -111,6 +111,22 @@ fixed-policy points are slower than autoregressive baseline.
 This indicates that
 conclusions are more portable than absolute speedup magnitudes.
 
+Figure~\ref{fig:specdec-vs-baseline-metrics} consolidates the expanded
+comparison across model families, hardware profiles, and repeat seeds.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{figures/specdec_configs_vs_baseline_metrics.pdf}
+\caption{Expanded fixed-policy and stability comparison. (a) Qwen2.5 and
+Qwen3 speedup on RTX4090; (b) Qwen3 speedup on RTX4090 and RTX5090-laptop;
+(c) Qwen3 acceptance-rate portability; and (d) the change in mean latency
+from repeat seed 123 to seed 999 at $k{=}4$ for both model families and
+hardware profiles. Panels (a)--(c) use the primary seed-42 runs and
+regime-matched autoregressive baselines. The dotted line in (a)--(b) marks
+baseline parity ($S{=}1$).}
+\label{fig:specdec-vs-baseline-metrics}
+\end{figure*}
+
 \subsection{Sample-level and seed-level stability, TTFT/TPOT, and statistical testing detail}
 
 To provide stronger statistical detail, we report sample-level dispersion
