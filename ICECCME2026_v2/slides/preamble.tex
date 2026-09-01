@@ -1,0 +1,47 @@
+% ---------------------------------------------------------------
+% Shared preamble for the ICECCME 2026 presentation
+% ---------------------------------------------------------------
+\usetheme[progressbar=frametitle, numbering=fraction, block=fill]{metropolis}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{appendixnumberbeamer}
+
+% Colour-blind-safe palette, matching the paper figures.
+\definecolor{cbBlue}{HTML}{0072B2}   % Qwen2.5 / RTX4090
+\definecolor{cbOrange}{HTML}{D55E00} % Qwen3 / stochastic
+\definecolor{cbGreen}{HTML}{009E73}  % RTX5090-laptop
+\definecolor{cbGrey}{HTML}{555555}
+
+\setbeamercolor{progress bar}{fg=cbBlue}
+\setbeamercolor{alerted text}{fg=cbOrange}
+\setbeamerfont{note page}{size=\small}
+
+% Compact tables that survive a projector.
+\setlength{\tabcolsep}{4.2pt}
+\renewcommand{\arraystretch}{1.08}
+
+% Shorthands used throughout the deck.
+\newcommand{\up}{\textcolor{cbBlue}{$\uparrow$}}
+\newcommand{\dn}{\textcolor{cbOrange}{$\downarrow$}}
+\newcommand{\best}[1]{\textcolor{cbBlue}{\textbf{#1}}}
+\newcommand{\bad}[1]{\textcolor{cbOrange}{\textbf{#1}}}
+\newcommand{\Beff}{B_{\text{eff}}}
+
+% Panel clipping for figures/specdec_configs_vs_baseline_metrics.pdf
+% (a 2x2 matplotlib grid, 545.9 x 393.2 pt).
+\newcommand{\panelA}[1][0.92\linewidth]{%
+  \includegraphics[width=#1, trim=9 202 271 5, clip]%
+  {../figures/specdec_configs_vs_baseline_metrics.pdf}}
+\newcommand{\panelB}[1][0.92\linewidth]{%
+  \includegraphics[width=#1, trim=271 202 22 5, clip]%
+  {../figures/specdec_configs_vs_baseline_metrics.pdf}}
+\newcommand{\panelC}[1][0.92\linewidth]{%
+  \includegraphics[width=#1, trim=5 8 267 199, clip]%
+  {../figures/specdec_configs_vs_baseline_metrics.pdf}}
+\newcommand{\panelD}[1][0.92\linewidth]{%
+  \includegraphics[width=#1, trim=271 8 5 199, clip]%
+  {../figures/specdec_configs_vs_baseline_metrics.pdf}}

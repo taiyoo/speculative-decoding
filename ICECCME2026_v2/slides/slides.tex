@@ -1,0 +1,831 @@
+% ===============================================================
+%  Characterizing Speculative Decoding Dynamics for LLMs
+%  on Consumer-Class GPUs  --  ICECCME 2026 conference talk
+%
+%  Target duration: 8-12 minutes (planned ~10:40, see \note pages)
+%
+%  BUILD
+%    Slides only :  latexmk -pdf slides.tex
+%    Notes only  :  latexmk -pdf -jobname=slides-notes \
+%                     "\def\NOTESMODE{}\input{slides.tex}"
+%    Dual screen :  set \def\NOTESMODE{} -> change option below
+% ===============================================================
+\documentclass[aspectratio=169, 11pt]{beamer}
+
+\input{preamble}
+
+% --- notes switch -----------------------------------------------
+\ifdefined\NOTESMODE
+  \setbeameroption{show only notes}
+  % Notes-only build: drop the slide thumbnail and shrink the type so that
+  % even the longest note fits on a single page.
+  \setbeamertemplate{note page}[plain]
+  \setbeamerfont{note page}{size=\footnotesize}
+\else
+  \setbeameroption{hide notes}
+  % For a presenter-display setup, comment the line above and use:
+  % \setbeameroption{show notes on second screen=right}
+\fi
+% ----------------------------------------------------------------
+
+\title{Characterizing Speculative Decoding Dynamics for Large
+       Language Models on Consumer-Class GPUs}
+\author{Samsu Sempena \and Zhuohan Cui}
+\institute{The University of Sydney}
+\date{ICECCME 2026 \\ 15--17 October 2026, Bali, Indonesia}
+
+\begin{document}
+
+% ================================================================
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+\note{%
+\textbf{[0:00--0:20 | Title]}\\[2pt]
+``Good morning. I'm Samsu Sempena from the University of Sydney, and this is
+joint work with Zhuohan Cui. Our paper characterizes what speculative decoding
+actually does on consumer-class GPUs --- the kind of hardware a practitioner
+has under their desk, not in a data centre.''\\[4pt]
+\emph{Cue:} say the one-line thesis up front so the audience has a hook ---
+``the short version is that the \emph{policy ranking} travels between GPUs,
+but the \emph{speedup} does not.''\\[4pt]
+\emph{Housekeeping:} confirm the clicker works, and check whether the chair
+wants questions during or after.
+}
+
+% ================================================================
+\section{Motivation}
+
+\begin{frame}{Decoding is sequential, and that is the bottleneck}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.56\textwidth}
+      \begin{itemize}
+        \item Autoregressive decoding needs \alert{one full forward pass of the
+              target model per token}.
+        \item Single-stream, interactive latency is therefore bound by
+              \emph{memory traffic}, not by arithmetic.
+        \item Speculative decoding is the standard fix --- and it is reported
+              to be a large, free win.
+      \end{itemize}
+      \vspace{4pt}
+      \begin{block}{The practitioner's problem}
+        Almost all published gains are measured on \textbf{data-centre}
+        hardware. On a single RTX-class GPU, what actually happens?
+      \end{block}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \scriptsize
+      \begin{tabular}{@{}ll@{}}
+        \toprule
+        \multicolumn{2}{l}{\textbf{Open deployment questions}}\\
+        \midrule
+        Which draft size?      & 0.5B? 1.5B? \\
+        Which proposal length? & $k=4$? $8$? $16$? \\
+        Greedy or sampling?    & speed vs.\ quality \\
+        Does it transfer?      & desktop $\to$ laptop \\
+        \bottomrule
+      \end{tabular}
+    \end{column}
+  \end{columns}
+\end{frame}
+\note{%
+\textbf{[0:20--1:05 | Motivation]}\\[2pt]
+Frame the bottleneck physically: every token costs a complete pass over the
+target model's weights, so on a single stream you are moving gigabytes of
+weights per token and the GPU's compute units are mostly idle. That is why
+batch-1 interactive decoding is memory-bandwidth bound.\\[4pt]
+Then the pivot: ``speculative decoding is the well-known answer, and the
+literature reports two-to-five-times speedups. But look at where those numbers
+come from --- A100s, H100s, B200s. The practitioner running a 3B or 4B model on
+one RTX card has no reliable guidance.''\\[4pt]
+Point at the four questions on the right --- these are exactly the knobs
+someone has to set on day one, and say we will answer all four with
+measurements.\\[4pt]
+\emph{Do not} over-explain memory bandwidth; one sentence is enough.
+}
+
+% ================================================================
+\begin{frame}{Speculative decoding in one slide}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \textbf{Draft $\to$ verify $\to$ commit}
+      \begin{enumerate}\itemsep2pt
+        \item A small \textbf{draft} model proposes $k$ tokens
+              autoregressively.
+        \item The large \textbf{target} verifies all $k$ in
+              \alert{one} parallel forward pass.
+        \item Commit the accepted prefix; add one correction token on the
+              first mismatch.
+      \end{enumerate}
+      \vspace{3pt}
+      Modified rejection sampling keeps the output distribution
+      \emph{identical} to the target's.
+      \\[2pt]
+      \tiny Leviathan et al.\ 2023; Chen et al.\ 2023
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Per-cycle latency}
+        \[
+          L \;=\; \frac{T_{\text{draft}} + T_{\text{verify}}}{\tau},
+          \qquad
+          T_{\text{draft}} = k \cdot t_{\text{draft step}}
+        \]
+        $\tau \in [1,\,k{+}1]$ accepted tokens per cycle.
+      \end{block}
+      \vspace{-2pt}
+      \begin{itemize}\itemsep2pt
+        \item Numerator grows \alert{linearly} in $k$.
+        \item Denominator $\tau$ saturates as acceptance $\alpha$ falls.
+        \item[$\Rightarrow$] There must be a $k$ beyond which it \emph{loses}.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+\note{%
+\textbf{[1:05--2:00 | Method recap]}\\[2pt]
+Keep this brisk --- most of the room knows the algorithm. Walk the three steps
+once, then land hard on the equation, because it is the analytical spine of
+every result that follows.\\[4pt]
+Say it plainly: ``the cost in the numerator grows linearly with $k$, because
+you run the draft model $k$ times. The payoff in the denominator is $\tau$, the
+accepted tokens per cycle, and $\tau$ saturates --- once acceptance drops off,
+extra proposals are wasted work. So the theory already tells you there is a
+crossover. Our contribution is showing \emph{where} it sits on real consumer
+hardware, and that it sits much lower than people assume.''\\[4pt]
+Stress the correctness guarantee once --- ``this is lossless with respect to
+the target distribution'' --- because it pre-empts a question, and because it
+makes the quality result later more interesting.
+}
+
+% ================================================================
+\begin{frame}{What is missing, and what we ask}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.44\textwidth}
+      \textbf{Three gaps in the literature}
+      \begin{itemize}\itemsep3pt
+        \item No cross-model \emph{and} cross-hardware validation at the
+              consumer tier.
+        \item Speedups reported as bare means --- no sample- or seed-level
+              dispersion.
+        \item Rarely any statistical test against a matched autoregressive
+              baseline.
+      \end{itemize}
+      \vspace{4pt}
+      {\small This is a \emph{characterization} paper, not a new decoding
+      algorithm.}
+    \end{column}
+    \begin{column}{0.54\textwidth}
+      \begin{block}{Research questions}
+        \small
+        \begin{description}\itemsep2pt
+          \item[RQ1] How much end-to-end speedup on consumer RTX hardware?
+          \item[RQ2] How do $k$ and acceptance \emph{jointly} set net latency?
+          \item[RQ3] How sensitive is the trade-off to deterministic
+                vs.\ stochastic decoding?
+          \item[RQ4] Do rankings and gains transfer RTX4090 $\to$
+                RTX5090-laptop?
+        \end{description}
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+\note{%
+\textbf{[2:00--2:40 | Gap and RQs]}\\[2pt]
+Be explicit and unapologetic about the contribution type: ``we are not
+proposing a faster drafter. We are asking whether the existing, unmodified
+draft--verify loop delivers on the hardware most people actually own, and we
+are answering it with the statistical care that deployment decisions
+deserve.''\\[4pt]
+Read RQ1 and RQ4 aloud; gesture at RQ2 and RQ3. RQ4 is the one the audience
+will remember, so give it a beat: ``and the fourth question is the one that
+surprised us.''\\[4pt]
+\emph{If running long:} skip the three gaps, go straight to the RQ block ---
+saves about 20 seconds.
+}
+
+% ================================================================
+\section{Protocol}
+
+\begin{frame}{Experimental protocol}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.49\textwidth}
+      \small
+      \textbf{Models} (same-family pairings)
+      \begin{itemize}\itemsep0pt
+        \item Qwen2.5-3B-Instruct $\leftarrow$ 0.5B draft
+        \item Qwen3-4B-Instruct $\leftarrow$ 0.6B draft
+        \item FP16, matched tokenizers, KV cache
+      \end{itemize}
+      \vspace{3pt}
+      \textbf{Hardware}
+      \begin{itemize}\itemsep0pt
+        \item RTX4090 desktop, 1008\,GB/s, 450\,W
+        \item RTX5090 laptop, 896\,GB/s, $\leq$150\,W
+      \end{itemize}
+      \vspace{3pt}
+      \textbf{Data} --- 1000 samples, frozen manifests:\\
+      GSM8K 300 \, $\cdot$ \, MMLU 500 \, $\cdot$ \, CNN/DM 200
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      \begin{block}{Fixed-policy grid}
+        \small
+        $k \in \{4, 8, 16\}$ $\times$ \{deterministic, stochastic\}\\
+        $\Rightarrow$ 6 configurations \textbf{per family per device},\\
+        each against a \alert{regime-matched} AR baseline.
+        \\[3pt]
+        Deterministic: $T{=}0$, top-$p{=}1$.\quad
+        Stochastic: $T{=}0.7$, top-$p{=}0.9$.
+      \end{block}
+      \begin{block}{Controls}
+        \small
+        Seed 42 primary; repeat seeds 123/999 at $k{=}4$.
+        Frozen sample-ID manifests, identical prompts and length limits,
+        warm-up before measurement, serial execution.
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+\note{%
+\textbf{[2:40--3:40 | Protocol]}\\[2pt]
+The message here is \emph{pairing}. Every speculative run is compared to a
+baseline that used the same prompts, the same sample IDs, the same length
+limits and the same sampling regime --- so speedup can be computed per sample,
+not just as a ratio of two independent averages. That is what makes the paired
+$t$-tests later legitimate.\\[4pt]
+Note the deliberate choice of same-family pairings: matching tokenizers means
+no vocabulary-alignment overhead contaminating the measurement. Cross-family
+pairing is a different study.\\[4pt]
+On hardware, flag the counter-intuitive line: the laptop 5090 is the
+\emph{newer} architecture --- Blackwell versus Ada --- but it has lower memory
+bandwidth and roughly a third of the power budget. Plant that seed now; it pays
+off at RQ4.\\[4pt]
+Be honest about the seed budget: full grid at seed 42, repeats only at $k{=}4$.
+Somebody will ask.
+}
+
+% ================================================================
+\section{Results}
+
+\begin{frame}{RQ1 --- On the RTX4090, it works}
+  \centering
+  \small
+  \begin{tabular}{l cc cc cc}
+    \toprule
+    & \multicolumn{2}{c}{$k=4$} & \multicolumn{2}{c}{$k=8$}
+    & \multicolumn{2}{c}{$k=16$}\\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+    \textbf{Speedup $S$} & det & stoch & det & stoch & det & stoch\\
+    \midrule
+    Qwen2.5 (3B $\leftarrow$ 0.5B) & \best{3.0674} & 2.9394 & 2.4542 & 2.4063 & 1.8050 & 1.8185\\
+    Qwen3 \; (4B $\leftarrow$ 0.6B) & \best{2.8548} & 2.4798 & 1.9648 & 1.6869 & 1.1091 & \bad{0.9719}\\
+    \midrule
+    Qwen3 acceptance $\alpha$ & 0.336 & 0.267 & 0.238 & 0.192 & 0.129 & 0.108\\
+    Qwen3 block $\Beff$       & 1.33  & 1.06  & 1.86  & 1.50  & 1.96  & 1.64\\
+    \bottomrule
+  \end{tabular}
+  \vspace{6pt}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \small
+      \begin{itemize}\itemsep1pt
+        \item 11 of 12 configurations beat baseline.
+        \item Both families peak at \best{deterministic $k{=}4$}.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \small
+      \begin{itemize}\itemsep1pt
+        \item Qwen3 stochastic $k{=}16$ is the one loss (\bad{$0.97\times$}).
+        \item Long proposals can erase the gain entirely.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+\note{%
+\textbf{[3:40--4:55 | RQ1 headline]}\\[2pt]
+This is the good-news slide --- deliver it confidently, then immediately
+complicate it.\\[4pt]
+Lead with the peak: ``on the RTX4090 we get just over three times on Qwen2.5
+and just under three times on Qwen3, both at deterministic $k{=}4$. Eleven of
+our twelve RTX4090 configurations beat their baseline.''\\[4pt]
+Then the hook into RQ2: ``but notice which column the best number is in. It is
+the \emph{smallest} $k$ we tested. Every step to a longer proposal costs us
+speed. And in the bottom-right cell, Qwen3 stochastic at $k{=}16$, speculative
+decoding is actually \emph{slower} than just running the target model
+normally.''\\[4pt]
+Also point at the two bottom rows now, because they set up the next slide:
+acceptance $\alpha$ falls by roughly a factor of three from $k{=}4$ to $k{=}16$,
+while the effective block size only rises from 1.3 to 2.0.\\[4pt]
+\emph{Pointer discipline:} touch three cells only --- the two bold peaks and
+the 0.9719. Do not read the table out.
+}
+
+% ================================================================
+\begin{frame}{RQ2 --- Bigger blocks, slower generation}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.55\textwidth}
+      \panelA[\linewidth]
+    \end{column}
+    \begin{column}{0.43\textwidth}
+      \small
+      \textbf{Mean speedup, $k{=}4 \to k{=}16$}
+      \begin{itemize}\itemsep0pt
+        \item Qwen2.5: $2.9164 \to 1.8118$
+        \item Qwen3: \; $2.6673 \to 1.0405$
+      \end{itemize}
+      \vspace{3pt}
+      \textbf{Token timing degrades too}\\
+      {\scriptsize (Qwen3, RTX4090, deterministic)}
+      \begin{itemize}\itemsep0pt
+        \item TTFT: \; $132.6 \to 349.6$\,ms
+        \item TPOT: \; $41.2 \to 94.2$\,ms/token
+      \end{itemize}
+      \vspace{3pt}
+      \begin{block}{}
+        \small $\Beff$ \emph{rises} while latency \emph{worsens}: the
+        overhead inflection arrives \alert{before $k{=}8$}.
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+\note{%
+\textbf{[4:55--5:55 | RQ2 the inflection]}\\[2pt]
+This is the analytically interesting result, so slow down here.\\[4pt]
+``Our hypothesis going in --- H2 --- was the textbook one: $k{=}8$ should beat
+$k{=}4$, and $k{=}16$ might start to lose. That is wrong on this hardware. The
+curve is monotonically decreasing from the smallest $k$ we tested. The
+inflection has already happened before $k{=}8$.''\\[4pt]
+Explain \emph{why} using the equation from earlier: the effective block size
+does go up --- you really are committing more tokens per verify step --- but it
+goes up sub-linearly while the drafting cost goes up linearly. Acceptance is
+only 34\% at $k{=}4$ and collapses to 13\% at $k{=}16$, so most of those extra
+$k$ draft steps are pure waste.\\[4pt]
+The token-timing numbers on the right are the practitioner's punchline: at
+$k{=}16$ you have nearly tripled time-to-first-token. For an interactive
+application that is the worst possible place to spend latency --- the user sees
+it directly.\\[4pt]
+\emph{Implication to state:} on this class of hardware, tune $k$ downward, and
+$k{=}4$ may not even be the floor.
+}
+
+% ================================================================
+\begin{frame}{RQ3 --- Deterministic decoding is the safer default}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.52\textwidth}
+      \scriptsize
+      \begin{tabular}{@{}lccc@{}}
+        \toprule
+        \textbf{Qwen3, RTX4090} & $k{=}4$ & $k{=}8$ & $k{=}16$\\
+        \midrule
+        Deterministic $S$ & 2.8548 & 1.9648 & 1.1091\\
+        Stochastic $S$    & 2.4798 & 1.6869 & 0.9719\\
+        \midrule
+        Advantage         & \best{$+0.3750$} & $+0.2779$ & $+0.1372$\\
+        \bottomrule
+      \end{tabular}
+      \vspace{8pt}
+      \small
+      \begin{itemize}\itemsep3pt
+        \item Greedy drafting agrees with greedy verification more often
+              $\Rightarrow$ higher $\alpha$ (0.336 vs.\ 0.267 at $k{=}4$).
+        \item The advantage \emph{shrinks} with $k$ --- once acceptance is
+              low, regime hardly matters.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.46\textwidth}
+      \begin{block}{Not universal}
+        \small
+        Qwen2.5 follows the same ordering at $k{=}4$ and $k{=}8$, but reverses
+        slightly at $k{=}16$ ($1.8050$ det vs.\ $1.8185$ stoch).
+      \end{block}
+      \vspace{2pt}
+      {\small\textbf{Takeaway.} If you need sampling, expect to pay
+      $\sim$13\% of your speedup for it at low $k$.}
+    \end{column}
+  \end{columns}
+\end{frame}
+\note{%
+\textbf{[5:55--6:30 | RQ3 regime]}\\[2pt]
+Short slide --- this is the least surprising result, so move through it.\\[4pt]
+The mechanism is the thing worth saying out loud: ``when both draft and target
+decode greedily, the draft's proposal is compared against a deterministic
+target continuation, so agreement is high. Turn sampling on for both and you
+introduce two independent sources of randomness, acceptance drops from about
+34\% to 27\%, and you lose roughly 13\% of your speedup.''\\[4pt]
+Be careful to state the caveat rather than hiding it: at $k{=}16$ Qwen2.5
+actually reverses, marginally. It is a small effect but we report it --- the
+preference is a strong tendency, not a law.\\[4pt]
+\emph{If running long:} this is the first slide to cut. State the one-line
+takeaway --- ``deterministic wins at matched $k$, by a margin that shrinks as
+$k$ grows'' --- and click through.
+}
+
+% ================================================================
+\begin{frame}{RQ4 --- The same policy, a different GPU, and it all inverts}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.53\textwidth}
+      \panelB[\linewidth]
+    \end{column}
+    \begin{column}{0.45\textwidth}
+      \small
+      \textbf{Qwen3 on RTX5090-laptop}
+      \scriptsize
+      \begin{tabular}{@{}lcc@{}}
+        \toprule
+        Config & $S$ & $\alpha$\\
+        \midrule
+        $k{=}4$, det   & \bad{0.6743} & 0.335\\
+        $k{=}4$, stoch & \bad{0.5924} & 0.285\\
+        $k{=}8$, det   & \bad{0.4613} & 0.254\\
+        $k{=}8$, stoch & \bad{0.3995} & 0.227\\
+        $k{=}16$, det  & \bad{0.2588} & 0.180\\
+        $k{=}16$, stoch& \bad{0.2222} & 0.154\\
+        \bottomrule
+      \end{tabular}
+      \vspace{4pt}
+      \small
+      \begin{itemize}\itemsep1pt
+        \item \alert{All six are slower than baseline.}
+        \item Acceptance \emph{unchanged} vs.\ RTX4090: the model behaves
+              the same, the \emph{stack} does not.
+        \item Ordering survives: low $k$, deterministic.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+\note{%
+\textbf{[6:30--7:50 | RQ4 portability --- the core result]}\\[2pt]
+This is the slide the talk exists for. Pause before starting it.\\[4pt]
+``We took the identical code, the identical models, the identical frozen
+manifests, and moved to an RTX5090 laptop --- a \emph{newer} architecture. Every
+single configuration is now slower than simply running the target model
+autoregressively. The best case, deterministic $k{=}4$, gives us 0.67 --- we have
+made inference one and a half times slower.''\\[4pt]
+Then the diagnostic point, which is what makes this a finding rather than an
+anecdote: ``acceptance is almost identical across the two devices --- 0.336
+versus 0.335 at $k{=}4$. So the algorithm is behaving exactly as it did on the
+desktop. What changed is the runtime economics: on this stack the draft model's
+per-step cost relative to the target's verification cost is unfavourable, and
+speculative decoding needs that ratio to be small.''\\[4pt]
+Land the deployment rule: ``speedup is a property of the complete
+model--hardware--runtime stack. It is not a property of the algorithm, and it is
+certainly not a property of the GPU generation --- the newer card lost.''\\[4pt]
+Finally, the constructive half: the \emph{ranking} did transfer. Low $k$ beats
+high $k$, deterministic beats stochastic, on both devices. So policy
+exploration on one machine is transferable; absolute claims are not.
+}
+\note{%
+\textbf{[RQ4, continued]}\\[2pt]
+\emph{Anticipate the question:} we do not claim to have isolated the cause. Our
+candidate explanation is host-side orchestration and graph-capture behaviour ---
+see the CUDA-graph note in the paper --- but we did not measure it, so we report
+it as context, not as a cause. Say that before someone asks.\\[4pt]
+\emph{Second likely question:} ``is the laptop card simply weaker?'' Partly ---
+lower bandwidth and roughly a third of the power budget. But $S$ is a
+\emph{ratio} against that same device's own autoregressive baseline, so a
+uniformly slower card should not by itself push the ratio below one. The
+backup hardware slide has the numbers.
+}
+
+% ================================================================
+\begin{frame}{Is the effect real? Statistics and stability}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.52\textwidth}
+      \small
+      \textbf{Paired one-sided $t$-tests}, $H_0{:}\ S \le 1$,\\
+      paired by sample, Holm--Bonferroni across 6 configs
+      (Qwen3, RTX4090, $n{=}1000$):
+      \vspace{2pt}
+      \scriptsize
+      \begin{tabular}{@{}lcc@{}}
+        \toprule
+        Config & $d_S$ & $p_S$\\
+        \midrule
+        det $k{=}4,8,16$   & 1.18 / 1.10 / 0.29 & all $<10^{-18}$\\
+        stoch $k{=}4,8$    & 1.24 / 1.13       & both $<10^{-179}$\\
+        stoch $k{=}16$     & \bad{$-0.08$}     & \bad{$0.996$} \\
+        \bottomrule
+      \end{tabular}
+      \vspace{6pt}
+      \small
+      \textbf{Dispersion is large.} Per-sample $S$ (det):
+      $2.7561\pm0.5950$ at $k{=}4$ $\to$ $1.3549\pm0.6533$ at $k{=}16$.
+      \\[2pt]
+      {\scriptsize At $k{=}16$ the standard deviation is half the mean ---
+      prompt-to-prompt variation dominates.}
+    \end{column}
+    \begin{column}{0.46\textwidth}
+      \panelD[\linewidth]
+      \vspace{-2pt}
+      {\scriptsize Seed 999 vs.\ 123 at $k{=}4$: deterministic within
+      $1.5\%$; stochastic $0.4\%$--$5.0\%$.}
+    \end{column}
+  \end{columns}
+\end{frame}
+\note{%
+\textbf{[7:50--8:40 | Evidence quality]}\\[2pt]
+Purpose of this slide: pre-empt the methodological objections, and show we are
+not over-claiming.\\[4pt]
+``Five of six RTX4090 configurations are significant after Holm--Bonferroni
+correction, with large effect sizes. The sixth --- stochastic $k{=}16$ --- is
+not significant, and its effect size is slightly negative, which is exactly
+consistent with its sub-baseline mean. We report it as a null, not as noise.''\\[4pt]
+The dispersion point matters more than the $p$-values: at $k{=}16$ the standard
+deviation across prompts is roughly half the mean. A single reported average
+speedup hides an enormous spread --- your slowest prompts may see no benefit at
+all. This is one of the things the literature routinely omits.\\[4pt]
+On the right panel: repeat seeds at $k{=}4$. Deterministic runs move by at most
+1.5\% between seeds; stochastic by up to 5\%. Regime ordering is preserved
+everywhere.\\[4pt]
+\emph{Say the limitation before the reviewer does:} we only have repeat seeds at
+$k{=}4$. We do not claim seed stability at $k{=}8$ or $k{=}16$.
+}
+
+% ================================================================
+\begin{frame}{Speed is not free: quality on CNN/DailyMail}
+  \centering
+  \small
+  \begin{tabular}{lccc}
+    \toprule
+    \textbf{Deterministic, $n{=}200$} & ROUGE-L & BLEU & BERTScore F1\\
+    \midrule
+    Autoregressive baseline & 19.58 & 3.20 & 0.793\\
+    Speculative, $k{=}4$    & \bad{11.50} & \bad{1.39} & \bad{0.710}\\
+    Speculative, $k{=}16$   & 14.92 & 2.04 & 0.741\\
+    \bottomrule
+  \end{tabular}
+  \vspace{8pt}
+  \begin{columns}[T]
+    \begin{column}{0.47\textwidth}
+      \small
+      \begin{itemize}\itemsep2pt
+        \item All three metrics agree: a real quality cost on the
+              summarization task.
+        \item It \alert{partially recovers} as $k$ grows --- moving
+              \emph{against} the speed trend.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \begin{block}{}
+        \small The fastest configuration is also the weakest on
+        summarization. There is a genuine speed--quality frontier here, not
+        free acceleration.
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+\note{%
+\textbf{[8:40--9:25 | Quality trade-off]}\\[2pt]
+Deliver this as an honest complication of our own headline number.\\[4pt]
+``Earlier I said the peak was deterministic $k{=}4$. On summarization, that is
+also our \emph{worst} quality point --- ROUGE-L drops from 19.6 to 11.5, and BLEU
+and BERTScore move the same way. Three independent metrics agreeing means this
+is not a metric artefact.''\\[4pt]
+The direction is the interesting part: quality \emph{recovers} as $k$ increases,
+which is the opposite direction to speed. So the two axes genuinely trade off
+against each other across our grid, and the operating point is a choice, not a
+default.\\[4pt]
+\emph{Expected question --- be ready:} ``isn't speculative decoding supposed to
+be distribution-preserving?'' Answer: exactly, and that is why this is worth
+reporting. The guarantee is about the sampling distribution under the idealized
+scheme; what we measure is an end-to-end implementation on a bounded generation
+budget, where accepted-prefix commitment and length limits interact. We flag it
+as an observed effect in our implementation and do not claim it refutes the
+theory. Do not oversell this --- it is a limitation we are surfacing.\\[4pt]
+Note that GSM8K and MMLU are accuracy tasks and are covered by our success
+criteria; this slide is the summarization result specifically.
+}
+
+% ================================================================
+\section{Wrap-up}
+
+\begin{frame}{What we can and cannot claim}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \textbf{Hypotheses}
+      \small
+      \begin{itemize}\itemsep2pt
+        \item[\textbf{H1}] $S>1$ --- \best{supported} on RTX4090
+              (11/12), \bad{rejected} on RTX5090-laptop.
+        \item[\textbf{H2}] $k{=}8 > k{=}4$ --- \bad{rejected}; speedup
+              falls monotonically.
+        \item[\textbf{H3}] $\Beff$ up, latency worse --- \best{supported}.
+        \item[\textbf{H4}] Deterministic faster --- \best{mostly supported}
+              (one reversal).
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Threats to validity}
+      \small
+      \begin{itemize}\itemsep2pt
+        \item One PyTorch/Transformers stack; results do not extrapolate to
+              other runtimes or GPUs.
+        \item Same-family Qwen pairings only.
+        \item No long-context, safety, or factual-consistency evaluation.
+        \item Repeat seeds cover $k{=}4$ only.
+        \item CUDA-graph capture differs across run families --- reported as
+              context, \emph{not} as a measured cause.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+\note{%
+\textbf{[9:25--9:55 | Scorecard and limits]}\\[2pt]
+Move quickly --- this slide is mostly for the record and for the reviewers in
+the room. Do not read every bullet.\\[4pt]
+Highlight two things only. First, H2: ``we predicted $k{=}8$ would beat $k{=}4$
+and it does not --- the overhead inflection is earlier than the folklore
+suggests.'' Second, the limitations column exists because we want the claim
+bounded: this is one runtime stack, one model family, one benchmark suite.\\[4pt]
+The CUDA-graph bullet is the intellectually honest one --- we saw a difference in
+capture behaviour between run families, and it is a plausible contributor to the
+RTX5090 result, but we did not isolate it experimentally, so we refuse to call
+it the cause.\\[4pt]
+\emph{Timing checkpoint:} you should be at roughly 9:30 here. If you are past
+10:30, skip straight to the takeaways.
+}
+
+% ================================================================
+\begin{frame}[standout]
+  \Large
+  Policy ranking is portable. \\[6pt]
+  Absolute speedup is not.
+\end{frame}
+\note{%
+\textbf{[9:55--10:05 | The one line]}\\[2pt]
+Pause. Let it sit for two seconds. This is the sentence you want people to
+repeat to a colleague afterwards. Do not add anything to it --- click through
+to the takeaways.
+}
+
+% ================================================================
+\begin{frame}{Takeaways}
+  \begin{enumerate}\itemsep6pt
+    \item \textbf{Use a short proposal.} On both consumer GPUs and both model
+          families, $k{=}4$ dominates $k{=}8$ and $k{=}16$ --- the overhead
+          inflection arrives earlier than expected.
+    \item \textbf{Prefer deterministic decoding} at matched $k$; sampling
+          costs roughly 13\% of the speedup at $k{=}4$.
+    \item \textbf{Benchmark on your target stack.} An RTX4090 gave up to
+          $3.07\times$; the same code on an RTX5090 laptop was
+          \emph{sub-baseline everywhere}, with unchanged acceptance.
+    \item \textbf{Report dispersion and quality, not just a mean speedup.}
+          Per-sample spread is large, and summarization quality moves against
+          the speed trend.
+  \end{enumerate}
+  \vspace{6pt}
+  \centering
+  \small Frozen manifests, matched baselines, and raw per-sample artifacts
+  support reproduction.
+\end{frame}
+\note{%
+\textbf{[10:05--10:40 | Close]}\\[2pt]
+Four sentences, one per point, then stop. Do not re-explain --- the audience has
+seen all the evidence.\\[4pt]
+Rule one: short proposals. Rule two: greedy if you can afford it. Rule three,
+and this is the one to emphasize with your voice: measure on the machine you
+will actually deploy on, because we have a concrete counter-example where a
+newer GPU turned a three-times win into a one-and-a-half-times loss. Rule four:
+report the spread and the quality, because the mean speedup on its own is not a
+deployment decision.\\[4pt]
+Close on future work in one breath: full grid across seeds, broader hardware and
+model coverage, longer contexts and factuality-sensitive metrics.\\[4pt]
+``Thank you --- I'm happy to take questions.''
+}
+
+% ================================================================
+\appendix
+
+\begin{frame}[standout]
+  Backup slides
+\end{frame}
+\note{Backup material follows. Jump here only if asked.}
+
+\begin{frame}{Backup --- full Qwen3 RTX4090 grid}
+  \centering
+  \small
+  \begin{tabular}{lcccccc}
+    \toprule
+    \textbf{Config} & $S$ & $\alpha$ & $\Beff$ & $T_{\text{mean}}$ (s)
+    & TTFT (ms) & TPOT (ms)\\
+    \midrule
+    $k{=}4$, det   & 2.8548 & 0.3362 & 1.33 & 4.8881 & 132.57 & 41.23\\
+    $k{=}4$, stoch & 2.4798 & 0.2672 & 1.06 & 5.6196 & 134.54 & 45.51\\
+    $k{=}8$, det   & 1.9648 & 0.2378 & 1.86 & 7.1024 & 204.99 & 58.76\\
+    $k{=}8$, stoch & 1.6869 & 0.1916 & 1.50 & 8.2612 & 207.82 & 64.67\\
+    $k{=}16$, det  & 1.1091 & 0.1292 & 1.96 & 12.5817 & 349.58 & 94.24\\
+    $k{=}16$, stoch& 0.9719 & 0.1082 & 1.64 & 14.3390 & 354.82 & 106.03\\
+    \bottomrule
+  \end{tabular}
+  \vspace{6pt}
+
+  \small Target: Qwen3-4B-Instruct; draft: Qwen3-0.6B-Instruct; $n{=}1000$.
+\end{frame}
+\note{Use if asked for the full Qwen3 numbers, or for TTFT/TPOT detail.}
+
+\begin{frame}{Backup --- full Qwen2.5 RTX4090 grid}
+  \centering
+  \small
+  \begin{tabular}{lcccccc}
+    \toprule
+    \textbf{Config} & $S$ & $\alpha$ & $\Beff$ & $T_{\text{mean}}$ (s)
+    & TTFT (ms) & TPOT (ms)\\
+    \midrule
+    $k{=}4$, det   & 3.0674 & 0.4212 & 1.66 & 3.7210 & 102.35 & 29.06\\
+    $k{=}4$, stoch & 2.9394 & 0.4080 & 1.61 & 3.9631 & 105.26 & 30.89\\
+    $k{=}8$, det   & 2.4542 & 0.3515 & 2.72 & 4.6508 & 162.76 & 36.73\\
+    $k{=}8$, stoch & 2.4063 & 0.3444 & 2.67 & 4.8411 & 165.95 & 38.04\\
+    $k{=}16$, det  & 1.8050 & 0.2539 & 3.76 & 6.3234 & 277.43 & 49.34\\
+    $k{=}16$, stoch& 1.8185 & 0.2516 & 3.73 & 6.4059 & 278.85 & 49.81\\
+    \bottomrule
+  \end{tabular}
+  \vspace{6pt}
+
+  \small Target: Qwen2.5-3B-Instruct; draft: Qwen2.5-0.5B-Instruct; $n{=}1000$.\\
+  Higher $\alpha$ and $\Beff$ than Qwen3 at every $k$.
+\end{frame}
+\note{%
+Qwen2.5 accepts more than Qwen3 at every $k$ --- $\alpha=0.42$ vs.\ $0.34$ at
+$k{=}4$, and effective block size 3.76 vs.\ 1.96 at $k{=}16$. That is why
+Qwen2.5 never falls below baseline on the RTX4090 while Qwen3 does. Likely a
+smaller capability gap between the 3B target and 0.5B draft than between the
+4B target and 0.6B draft.
+}
+
+\begin{frame}{Backup --- acceptance portability}
+  \centering
+  \panelC[0.62\linewidth]
+  \vspace{2pt}
+
+  \small Qwen3 acceptance is essentially identical on RTX4090 and
+  RTX5090-laptop at every $k$, in both regimes.
+  The algorithm behaves the same; the \alert{runtime economics} differ.
+\end{frame}
+\note{%
+The single most useful backup slide for the RQ4 discussion. If someone
+challenges the RTX5090 result --- ``did you misconfigure it?'' --- this is the
+answer: acceptance is a model-level quantity and it is unchanged, so the
+speculative loop is doing exactly what it did on the desktop. The loss is in
+per-step execution cost, not in the algorithm.
+}
+
+\begin{frame}{Backup --- success criteria and metrics}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \small
+      \textbf{Stated success criteria}
+      \begin{itemize}\itemsep2pt
+        \item Primary: mean $S \ge 1.3\times$ with Holm--Bonferroni-corrected
+              $p_S < 0.05$.
+        \item Primary: absolute quality drop $\le 1.0$ point on GSM8K and
+              MMLU, deterministic regime.
+        \item Secondary: best $(k, \text{regime})$ under quality constraints;
+              dispersion; seed stability; cross-hardware ranking transfer.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \small
+      \textbf{Key metric definitions}
+      \begin{itemize}\itemsep2pt
+        \item $S$ = baseline latency / speculative latency
+        \item $\alpha$ = accepted / proposed draft tokens
+        \item $\Beff$ = accepted draft tokens / verify steps
+        \item TTFT = first token time $-$ request start
+        \item TPOT = (completion $-$ first token) / output tokens
+        \item $d_S$ = Cohen's $d$, paired baseline vs.\ speculative latency
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+\note{Reference slide for methodology questions.}
+
+\begin{frame}{Backup --- hardware profiles}
+  \centering
+  \small
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Component} & \textbf{RTX4090 desktop} & \textbf{RTX5090 laptop}\\
+    \midrule
+    GPU memory        & 24\,GB GDDR6X & 24\,GB GDDR7\\
+    Memory bandwidth  & \best{1008\,GB/s} & 896\,GB/s\\
+    CUDA cores        & \best{16384} & 10496\\
+    Architecture      & Ada Lovelace & \best{Blackwell}\\
+    Power profile     & \best{450\,W TGP class} & up to 150\,W TGP (OEM-dependent)\\
+    Software stack    & \multicolumn{2}{c}{PyTorch + Transformers, pinned per run family}\\
+    \bottomrule
+  \end{tabular}
+  \vspace{8pt}
+
+  \small The laptop part is the newer architecture but has lower bandwidth and
+  roughly \alert{one third of the power budget}.
+\end{frame}
+\note{%
+The obvious question after RQ4 is ``is the 5090 laptop just a weaker card?''
+Partly --- lower bandwidth, far lower sustained power. But note that this affects
+the autoregressive baseline too, and $S$ is a \emph{ratio} against that same
+device's baseline. So a uniformly slower card should not by itself flip the
+ratio below 1. That is why we point at the draft/target cost ratio and the
+runtime path rather than at raw card performance.
+}
+
+\end{document}
