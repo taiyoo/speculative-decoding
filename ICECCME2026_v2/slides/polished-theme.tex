@@ -1,0 +1,198 @@
+% ===============================================================
+%  Custom theme for the ICECCME 2026 talk (polished edition).
+%  Built on beamer's default theme, not on a stock theme, so every
+%  element is under our control.  Requires LuaLaTeX (fontspec).
+% ===============================================================
+
+% ---------------------------------------------------------------
+% 1. Type -- Fira Sans throughout, Fira Math for the equations.
+% ---------------------------------------------------------------
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setsansfont{FiraSans}[
+  Extension      = .otf,
+  UprightFont    = *-Book,
+  ItalicFont     = *-BookItalic,
+  BoldFont       = *-SemiBold,
+  BoldItalicFont = *-SemiBoldItalic,
+  Numbers        = Proportional,
+  Ligatures      = TeX,
+]
+\setmonofont{FiraMono}[Extension=.otf, UprightFont=*-Regular, BoldFont=*-Bold, Scale=0.88]
+\setmathfont{FiraMath-Regular.otf}
+\renewcommand{\familydefault}{\sfdefault}
+% Light weight for display type (title, hero figures, section numbers).
+\newfontfamily\displaylight{FiraSans}[Extension=.otf, UprightFont=*-Light,
+  BoldFont=*-Medium, Numbers=Proportional, Ligatures=TeX]
+\newfontfamily\displaymedium{FiraSans}[Extension=.otf, UprightFont=*-Medium,
+  BoldFont=*-SemiBold, Numbers=Proportional, Ligatures=TeX]
+% Tabular figures, for columns of numbers that must align.
+\newfontfamily\tabularfigures{FiraSans}[Extension=.otf, UprightFont=*-Book,
+  BoldFont=*-SemiBold, Numbers=Monospaced, Ligatures=TeX]
+
+% ---------------------------------------------------------------
+% 2. Tokens -- surfaces, ink, and the validated categorical palette.
+%    node scripts/validate_palette.js "#0072B2,#D55E00,#009E73"
+%      -> lightness band, chroma floor, CVD separation (worst
+%         adjacent dE 11.0 deutan), normal-vision floor, contrast:
+%         all PASS.  Do not substitute hues without re-running it.
+% ---------------------------------------------------------------
+\definecolor{surface}{HTML}{FCFCFB}   % slide background
+\definecolor{ink}    {HTML}{14232B}   % primary text, dark frames
+\definecolor{ink2}   {HTML}{46585F}   % secondary text
+\definecolor{muted}  {HTML}{8FA0A6}   % tertiary text, axis labels
+\definecolor{rule}   {HTML}{E2E6E7}   % hairlines and gridlines
+\definecolor{wash}   {HTML}{F1F3F2}   % callout fill
+
+\definecolor{accent} {HTML}{0072B2}   % categorical slot 1
+\definecolor{warm}   {HTML}{D55E00}   % categorical slot 2
+\definecolor{teal}   {HTML}{009E73}   % categorical slot 3
+\definecolor{onink}  {HTML}{4DA3D6}   % accent, lightened for dark frames
+
+\newcommand{\vals}[1]{{\tabularfigures #1}}   % tabular figures in tables
+
+% ---------------------------------------------------------------
+% 3. Beamer colour and font assignments
+% ---------------------------------------------------------------
+\usetheme{default}
+\usefonttheme{professionalfonts}
+\setbeamercolor{background canvas}{bg=surface}
+\setbeamercolor{normal text}{fg=ink}
+\setbeamercolor{frametitle}{fg=ink}
+\setbeamercolor{alerted text}{fg=warm}
+\setbeamercolor{itemize item}{fg=accent}
+\setbeamercolor{itemize subitem}{fg=muted}
+\setbeamercolor{enumerate item}{fg=accent}
+
+\setbeamerfont{frametitle}{size=\Large, series=\bfseries}
+\setbeamerfont{title}{size=\fontsize{22}{26}\selectfont}
+\setbeamerfont{itemize/enumerate body}{size=\normalsize}
+\setbeamerfont{itemize/enumerate subbody}{size=\small}
+\setbeamerfont{note page}{size=\footnotesize}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize item}{\raisebox{1.6pt}{\rule{4.4pt}{4.4pt}}}
+\setbeamertemplate{itemize subitem}{\raisebox{2pt}{\rule{4pt}{1.2pt}}}
+\setbeamertemplate{enumerate item}{\insertenumlabel.}
+\setlength{\leftmargini}{1.35em}
+\setlength{\leftmarginii}{1.1em}
+
+% ---------------------------------------------------------------
+% 4. Frame furniture -- title bar and footer
+% ---------------------------------------------------------------
+\newlength{\deckmargin}\setlength{\deckmargin}{0.055\paperwidth}
+\setbeamersize{text margin left=\deckmargin, text margin right=\deckmargin}
+
+\setbeamertemplate{frametitle}{%
+  \nointerlineskip
+  \vskip10pt
+  \begin{minipage}{\dimexpr\paperwidth-2\deckmargin\relax}
+    \raggedright
+    {\usebeamerfont{frametitle}\usebeamercolor[fg]{frametitle}\insertframetitle\par}
+    \vskip4pt
+    {\color{accent}\rule{26pt}{1.8pt}}%
+    {\color{rule}\rule{\dimexpr\linewidth-26pt\relax}{0.5pt}}
+  \end{minipage}
+  \vskip8pt
+}
+
+% Short title for the footer; set with \deckfootline{...}.
+\newcommand{\deckfoottext}{}
+\newcommand{\deckfootline}[1]{\renewcommand{\deckfoottext}{#1}}
+
+\setbeamertemplate{footline}{%
+  \begin{minipage}{\dimexpr\paperwidth-2\deckmargin\relax}
+    {\color{rule}\rule{\linewidth}{0.4pt}}\par
+    \vskip3pt
+    {\scriptsize\color{muted}%
+      \deckfoottext\hfill\insertframenumber}
+  \end{minipage}%
+  \vskip5pt
+}
+
+% ---------------------------------------------------------------
+% 5. Full-bleed dark frames: title, section dividers, standout
+% ---------------------------------------------------------------
+\newcommand{\darkframe}[1]{%
+  \begingroup
+  \setbeamercolor{background canvas}{bg=ink}
+  \begin{frame}[plain,noframenumbering]
+    \color{surface}#1
+  \end{frame}
+  \endgroup
+}
+
+% Section divider with a running number.
+\newcounter{deckpart}
+\newcommand{\deckdivider}[2]{%
+  \stepcounter{deckpart}%
+  \darkframe{%
+    \vfill
+      \begin{minipage}{\dimexpr\paperwidth-2\deckmargin\relax}
+      \raggedright
+      {\displaylight\fontsize{13}{13}\selectfont\color{onink}%
+        \MakeUppercase{Part \thedeckpart}}\par
+      \vskip6pt
+      {\displaylight\fontsize{30}{34}\selectfont\color{surface}#1}\par
+      \vskip10pt
+      {\color{onink}\rule{34pt}{1.8pt}}\par
+      \vskip8pt
+      {\small\color{rule}#2}
+    \end{minipage}
+    \vfill
+  }%
+}
+
+% One sentence, full bleed, nothing else.
+\newcommand{\deckstandout}[1]{%
+  \darkframe{%
+    \vfill
+    \centering
+    {\displaylight\fontsize{26}{34}\selectfont #1\par}
+    \vfill
+  }%
+}
+
+% ---------------------------------------------------------------
+% 6. Figures -- stat tiles and hero numbers
+% ---------------------------------------------------------------
+% \stattile[colour]{value}{suffix}{label}
+\newcommand{\stattile}[4][accent]{%
+  \begin{minipage}[t]{\linewidth}
+    {\color{#1}\rule{20pt}{2.4pt}}\par
+    \vskip6pt
+    {\displaymedium\fontsize{27}{29}\selectfont\color{ink}#2}%
+    {\displaylight\fontsize{15}{15}\selectfont\color{ink2}#3}\par
+    \vskip4pt
+    {\footnotesize\color{ink2}\raggedright #4\par}
+  \end{minipage}%
+}
+
+% ---------------------------------------------------------------
+% 7. Callouts -- a rule and a wash, never a heavy box
+% ---------------------------------------------------------------
+\usepackage[most]{tcolorbox}
+\tcbset{
+  callout/.style={
+    enhanced, sharp corners, boxrule=0pt, frame hidden,
+    colback=wash, borderline west={2.2pt}{0pt}{accent},
+    left=8pt, right=7pt, top=6pt, bottom=6pt,
+    fontupper=\small\color{ink}\raggedright,
+  },
+  calloutwarm/.style={callout, borderline west={2.2pt}{0pt}{warm}},
+}
+\newtcolorbox{takeaway}[1][]{callout, #1}
+\newtcolorbox{takeawaywarm}[1][]{calloutwarm, #1}
+
+% ---------------------------------------------------------------
+% 8. Tables -- booktabs, hairline rules, tabular figures
+% ---------------------------------------------------------------
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{colortbl}
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.22}
+\setlength{\heavyrulewidth}{0.6pt}
+\setlength{\lightrulewidth}{0.35pt}
+\arrayrulecolor{rule}
+\newcolumntype{N}{>{\tabularfigures}c}   % numeric column

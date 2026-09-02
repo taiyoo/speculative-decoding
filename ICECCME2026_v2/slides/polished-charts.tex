@@ -1,0 +1,249 @@
+% ===============================================================
+%  Native pgfplots charts for the polished deck.
+%
+%  Shared specs, applied to every chart:
+%    - 1.5pt lines, ~2.6pt markers ringed in the surface colour
+%    - solid hairline y-grid only, one step off the surface
+%    - left/bottom spines only; tick labels in muted ink
+%    - composite encoding: hue = entity, dash = decoding regime,
+%      so four series need only two hues
+%    - legends are built in LaTeX text (\huekey / \stylekey), so
+%      label text always wears an ink token, never a data colour
+%    - direct labels on the extremes only, never on every point
+%
+%  Palette validated with the dataviz skill's checker:
+%    node scripts/validate_palette.js "#0072B2,#D55E00,#009E73"
+%    -> all six checks PASS (worst adjacent CVD dE 11.0, deutan).
+%
+%  Data transcribed from sec/05_results.tex; seed-stability
+%  percentages recomputed from the camera-ready artifacts via
+%  figures/make_specdec_configs_vs_baseline.py.
+% ===============================================================
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{arrows.meta, positioning, decorations.pathreplacing, calc}
+
+% --- legend keys, set in running text ---------------------------
+\newcommand{\huekey}[1]{\tikz[baseline=-0.35ex]{\fill[#1] (0,-0.055) rectangle (0.2,0.155);}}
+\newcommand{\stylekey}[1]{\tikz[baseline=-0.5ex]{\draw[ink2, line width=1.3pt, #1] (0,0)--(0.46,0);}}
+
+% --- shared axis styles -----------------------------------------
+\pgfplotsset{
+  deckaxis/.style={
+    axis lines=left,
+    axis line style={draw=rule, line width=0.5pt},
+    tick align=outside,
+    tick style={draw=rule, line width=0.5pt},
+    ymajorgrids, grid style={draw=rule, line width=0.4pt},   % solid, never dashed
+    tick label style={font=\scriptsize, color=muted},
+    label style={font=\scriptsize, color=ink2},
+    every axis plot/.append style={line width=1.5pt, mark size=2.6pt,
+      line join=round, line cap=round},
+    clip=false,
+    scale only axis,
+  },
+  % k is a doubling sequence, so log-2 spacing is even *and* honest.
+  % NB: xmode / log basis cannot live inside a pgfplotsset style --
+  % pgfplots accepts them only as direct axis options, so each axis
+  % below repeats those two keys.
+  kaxis/.style={
+    log ticks with fixed point,
+    xtick={4,8,16}, xmin=3.6, xmax=17.6,
+    xlabel={Proposal length $k$},
+  },
+  ringed/.style={mark options={fill=#1, draw=surface, line width=0.9pt}},
+}
+
+% Reference line spanning the full plot width at height #2, in style #1.
+\newcommand{\reflineat}[3]{%
+  \draw[#1] ({rel axis cs:0,0} |- {axis cs:#3,#2})
+         -- ({rel axis cs:1,0} |- {axis cs:#3,#2});}
+
+% ================================================================
+%  1. Speedup vs k on RTX4090, both model families.
+%     Job: trend over an ordered variable, series must stay apart.
+%     Hue = family, dash = regime.
+% ================================================================
+\newcommand{\chartFamilies}[2][5.0cm]{%
+\begin{tikzpicture}
+\begin{axis}[deckaxis, kaxis, xmode=log, log basis x=2, width=#1, height=#2,
+  ylabel={Speedup $S$ ($\times$)},
+  ymin=0.8, ymax=3.35, ytick={1,2,3},
+]
+  \reflineat{draw=ink2, line width=0.8pt}{1}{4}
+  \node[anchor=south west, font=\tiny, color=ink2, xshift=1pt, yshift=1pt]
+    at (axis cs:4,1.0) {autoregressive parity};
+
+  \addplot[accent, ringed=accent, mark=*]              coordinates {(4,3.0674) (8,2.4542) (16,1.8050)};
+  \addplot[accent, dashed, ringed=accent, mark=*]      coordinates {(4,2.9394) (8,2.4063) (16,1.8185)};
+  \addplot[warm, ringed=warm, mark=square*]            coordinates {(4,2.8548) (8,1.9648) (16,1.1091)};
+  \addplot[warm, dashed, ringed=warm, mark=square*]    coordinates {(4,2.4798) (8,1.6869) (16,0.9719)};
+
+  % the peak and the only sub-parity point -- nothing else labelled
+  \node[anchor=south west, font=\scriptsize\bfseries, color=ink, yshift=3pt]
+    at (axis cs:4,3.0674) {3.07$\times$};
+  \node[anchor=west, font=\scriptsize\bfseries, color=warm, xshift=4pt]
+    at (axis cs:16,0.9719) {0.97$\times$};
+\end{axis}
+\end{tikzpicture}}
+
+% ================================================================
+%  2. Qwen3 speedup, RTX4090 vs RTX5090-laptop.
+%     The point is that one family of curves sits entirely under
+%     parity, so parity is drawn heavier than the grid and labelled.
+% ================================================================
+\newcommand{\chartHardware}[2][5.0cm]{%
+\begin{tikzpicture}
+\begin{axis}[deckaxis, kaxis, xmode=log, log basis x=2, width=#1, height=#2,
+  ylabel={Speedup $S$ ($\times$)},
+  ymin=0, ymax=3.15, ytick={0,1,2,3},
+]
+  \reflineat{draw=ink2, line width=0.8pt}{1}{4}
+  \node[anchor=south west, font=\tiny, color=ink2, xshift=1pt, yshift=1pt]
+    at (axis cs:4.1,1.0) {autoregressive parity};
+
+  \addplot[accent, ringed=accent, mark=*]         coordinates {(4,2.8548) (8,1.9648) (16,1.1091)};
+  \addplot[accent, dashed, ringed=accent, mark=*] coordinates {(4,2.4798) (8,1.6869) (16,0.9719)};
+  \addplot[teal, ringed=teal, mark=triangle*, mark size=3.2pt]
+    coordinates {(4,0.6743) (8,0.4613) (16,0.2588)};
+  \addplot[teal, dashed, ringed=teal, mark=triangle*, mark size=3.2pt]
+    coordinates {(4,0.5924) (8,0.3995) (16,0.2222)};
+
+  \node[anchor=south west, font=\scriptsize\bfseries, color=ink, yshift=3pt]
+    at (axis cs:4,2.8548) {2.85$\times$};
+  \node[anchor=west, font=\scriptsize\bfseries, color=teal, xshift=4pt]
+    at (axis cs:16,0.2588) {0.26$\times$};
+\end{axis}
+\end{tikzpicture}}
+
+% ================================================================
+%  3. Qwen3 acceptance across the two devices.
+%     Evidence that the algorithm itself is behaving the same.
+% ================================================================
+\newcommand{\chartAcceptance}[2][5.6cm]{%
+\begin{tikzpicture}
+\begin{axis}[deckaxis, kaxis, xmode=log, log basis x=2, width=#1, height=#2,
+  ylabel={Acceptance rate $\alpha$},
+  ymin=0.07, ymax=0.39, ytick={0.1,0.2,0.3},
+  yticklabel style={/pgf/number format/fixed, /pgf/number format/precision=1},
+]
+  \addplot[accent, ringed=accent, mark=*]         coordinates {(4,0.3362) (8,0.2378) (16,0.1292)};
+  \addplot[accent, dashed, ringed=accent, mark=*] coordinates {(4,0.2672) (8,0.1916) (16,0.1082)};
+  \addplot[teal, ringed=teal, mark=triangle*, mark size=3.2pt]
+    coordinates {(4,0.3353) (8,0.2538) (16,0.1803)};
+  \addplot[teal, dashed, ringed=teal, mark=triangle*, mark size=3.2pt]
+    coordinates {(4,0.2845) (8,0.2273) (16,0.1543)};
+
+  \node[anchor=south west, font=\scriptsize, color=ink2, yshift=3pt]
+    at (axis cs:4,0.3362) {0.336 vs.\ 0.335 at $k{=}4$};
+\end{axis}
+\end{tikzpicture}}
+
+% ================================================================
+%  4. Repeat-seed latency change at k=4.
+%     Signed change about a zero baseline; hue encodes regime
+%     (identity), so this is categorical rather than diverging.
+% ================================================================
+\newcommand{\chartStability}[2][5.2cm]{%
+\begin{tikzpicture}
+\begin{axis}[deckaxis, width=#1, height=#2,
+  ybar=1.6pt, bar width=7pt,
+  ymin=-5.9, ymax=1.5, ytick={-4,-2,0},
+  ylabel={Seed 999 vs.\ 123 (\%)},
+  symbolic x coords={Q2.5/4090, Q3/4090, Q2.5/5090L, Q3/5090L},
+  xtick=data,
+  xticklabel style={font=\tiny, color=muted},
+  enlarge x limits=0.17,
+]
+  \addplot[fill=accent, draw=none] coordinates
+    {(Q2.5/4090,-0.79) (Q3/4090,0.17) (Q2.5/5090L,0.11) (Q3/5090L,-1.54)};
+  \addplot[fill=warm, draw=none] coordinates
+    {(Q2.5/4090,-0.41) (Q3/4090,-4.87) (Q2.5/5090L,-2.12) (Q3/5090L,-5.01)};
+  \reflineat{draw=ink2, line width=0.7pt}{0}{Q2.5/4090}
+  % the two extremes only
+  \node[anchor=north, font=\tiny, color=ink2] at (axis cs:Q3/5090L,-5.01) {$-5.0$};
+  \node[anchor=south, font=\tiny, color=ink2] at (axis cs:Q3/4090,0.17) {$+0.2$};
+\end{axis}
+\end{tikzpicture}}
+
+% ================================================================
+%  5. Summarization quality as a share of the AR baseline.
+%     ROUGE-L, BLEU and BERTScore sit on three different scales,
+%     so they are indexed to a common base (baseline = 100) and
+%     plotted on ONE axis.  Never a dual axis.
+% ================================================================
+\newcommand{\chartQuality}[2][5.6cm]{%
+\begin{tikzpicture}
+\begin{axis}[deckaxis, width=#1, height=#2,
+  ybar=1.6pt, bar width=11pt,
+  ymin=0, ymax=125, ytick={0,50,100},
+  yticklabel={\pgfmathprintnumber{\tick}\%},
+  ylabel={Share of AR baseline},
+  symbolic x coords={ROUGE-L, BLEU, BERTScore},
+  xtick=data,
+  xticklabel style={font=\scriptsize, color=ink2},
+  enlarge x limits=0.3,
+  nodes near coords,
+  every node near coord/.append style={font=\tiny, color=ink2, anchor=south,
+    /pgf/number format/fixed, /pgf/number format/precision=0},
+]
+  \addplot[fill=warm, draw=none]   coordinates {(ROUGE-L,58.7) (BLEU,43.4) (BERTScore,89.5)};
+  \addplot[fill=accent, draw=none] coordinates {(ROUGE-L,76.2) (BLEU,63.8) (BERTScore,93.4)};
+  \reflineat{draw=ink2, line width=0.8pt}{100}{ROUGE-L}
+  \node[anchor=south west, font=\tiny, color=ink2, yshift=1pt]
+    at ({rel axis cs:0.01,0} |- {axis cs:ROUGE-L,100}) {autoregressive baseline};
+\end{axis}
+\end{tikzpicture}}
+
+% ================================================================
+%  Diagram -- one speculative cycle as a token strip.
+%  Shows the mechanism behind the latency equation: k proposals,
+%  an accepted prefix, the first mismatch, one correction token.
+%  Identity is carried by the \tokenkey legend set beneath it in
+%  running text, not by labels hung off individual cells.
+% ================================================================
+\newcommand{\tokenstrip}{%
+\begin{tikzpicture}[
+  x=1.12cm,
+  tok/.style={draw=rule, fill=surface, minimum width=8.4mm, minimum height=6.4mm,
+              inner sep=0pt, font=\small, rounded corners=1pt},
+  ok/.style  ={tok, fill=accent!13, draw=accent!45},
+  no/.style  ={tok, fill=warm!18,   draw=warm!55},
+  fix/.style ={tok, fill=teal!15,   draw=teal!55},
+  gone/.style={tok, draw=rule, text=muted},
+  lbl/.style ={font=\scriptsize\color{ink2}, anchor=east},
+]
+  % --- row 1: the draft's proposal ------------------------------
+  \node[lbl] at (-0.32,0) {draft proposes $k{=}4$};
+  \foreach \i/\t in {0/{$t_1$}, 1/{$t_2$}, 2/{$t_3$}, 3/{$t_4$}}
+    \node[tok] (d\i) at (\i,0) {\t};
+
+  % --- row 2: the verdicts from one verification pass -----------
+  \node[lbl] at (-0.32,-1.2) {target verifies in 1 pass};
+  \node[ok]   (v0) at (0,-1.2) {$t_1$};
+  \node[ok]   (v1) at (1,-1.2) {$t_2$};
+  \node[no]   (v2) at (2,-1.2) {$t_3$};
+  \node[gone] (v3) at (3,-1.2) {$t_4$};
+  \node[fix]  (v4) at (4.34,-1.2) {$t_3'$};
+
+  \foreach \i in {0,1,2,3}
+    \draw[-{Latex[length=1.5mm]}, draw=rule, line width=0.7pt] (d\i) -- (v\i);
+
+  % --- what the cycle actually yields ---------------------------
+  \draw[decorate, decoration={brace, amplitude=3.5pt, mirror},
+        draw=accent, line width=0.7pt] (-0.40,-1.62) -- (1.40,-1.62);
+  \node[font=\scriptsize\color{accent}, anchor=north] at (0.5,-1.80)
+    {accepted prefix};
+  \draw[decorate, decoration={brace, amplitude=3.5pt, mirror},
+        draw=teal, line width=0.7pt] (3.94,-1.62) -- (4.74,-1.62);
+  \node[font=\scriptsize\color{teal}, anchor=north] at (4.34,-1.80)
+    {$+\,1$ correction};
+  \node[font=\scriptsize\color{ink2}, anchor=north] at (2.2,-2.28)
+    {$\tau = 3$ committed tokens for one verification step};
+\end{tikzpicture}}
+
+% Inline legend swatch for the token strip, set in running text.
+% \tokenkey{fill}{draw}{label}
+\newcommand{\tokenkey}[3]{%
+  \tikz[baseline=-0.5ex]{\draw[fill=#1, draw=#2, rounded corners=0.8pt]
+    (0,-0.075) rectangle (0.26,0.185);}\,{\scriptsize\color{ink2}#3}}

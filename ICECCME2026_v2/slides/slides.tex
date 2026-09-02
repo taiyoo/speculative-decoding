@@ -446,8 +446,8 @@ $k$ grows'' --- and click through.
       \small
       \begin{itemize}\itemsep1pt
         \item \alert{All six are slower than baseline.}
-        \item Acceptance \emph{unchanged} vs.\ RTX4090: the model behaves
-              the same, the \emph{stack} does not.
+        \item Acceptance \emph{equals or beats} RTX4090 at every $k$ ---
+              the loss is in execution cost, not the algorithm.
         \item Ordering survives: low $k$, deterministic.
       \end{itemize}
     \end{column}
@@ -462,11 +462,13 @@ single configuration is now slower than simply running the target model
 autoregressively. The best case, deterministic $k{=}4$, gives us 0.67 --- we have
 made inference one and a half times slower.''\\[4pt]
 Then the diagnostic point, which is what makes this a finding rather than an
-anecdote: ``acceptance is almost identical across the two devices --- 0.336
-versus 0.335 at $k{=}4$. So the algorithm is behaving exactly as it did on the
-desktop. What changed is the runtime economics: on this stack the draft model's
-per-step cost relative to the target's verification cost is unfavourable, and
-speculative decoding needs that ratio to be small.''\\[4pt]
+anecdote: ``acceptance is not the problem. At $k{=}4$ it is identical --- 0.336
+against 0.335. At $k{=}8$ and $k{=}16$ the laptop actually accepts \emph{more}
+--- 0.25 against 0.24, and 0.18 against 0.13. So the algorithm is doing at
+least as well as on the desktop, and it is still slower everywhere. What
+changed is the runtime economics: on this stack the draft model's per-step cost
+relative to the target's verification cost is unfavourable, and speculative
+decoding needs that ratio to be small.''\\[4pt]
 Land the deployment rule: ``speedup is a property of the complete
 model--hardware--runtime stack. It is not a property of the algorithm, and it is
 certainly not a property of the GPU generation --- the newer card lost.''\\[4pt]
@@ -757,16 +759,18 @@ smaller capability gap between the 3B target and 0.5B draft than between the
   \panelC[0.62\linewidth]
   \vspace{2pt}
 
-  \small Qwen3 acceptance is essentially identical on RTX4090 and
-  RTX5090-laptop at every $k$, in both regimes.
-  The algorithm behaves the same; the \alert{runtime economics} differ.
+  \small Qwen3 acceptance on the laptop is identical at $k{=}4$ (0.335 vs.\
+  0.336) and \emph{higher} at $k{=}8$ and $k{=}16$ (0.254 vs.\ 0.238; 0.180
+  vs.\ 0.129). The algorithm behaves at least as well; the
+  \alert{runtime economics} differ.
 \end{frame}
 \note{%
 The single most useful backup slide for the RQ4 discussion. If someone
 challenges the RTX5090 result --- ``did you misconfigure it?'' --- this is the
-answer: acceptance is a model-level quantity and it is unchanged, so the
-speculative loop is doing exactly what it did on the desktop. The loss is in
-per-step execution cost, not in the algorithm.
+answer: acceptance is a model-level quantity; it is unchanged at $k{=}4$ and
+actually \emph{better} at higher $k$, so the speculative loop is doing at least
+as well as it did on the desktop. The loss is in per-step execution cost, not
+in the algorithm.
 }
 
 \begin{frame}{Backup --- success criteria and metrics}
